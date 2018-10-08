@@ -13,6 +13,55 @@
 
 volatile int STOP=FALSE;
 
+int llopen(int fd){
+    char buf, message[5];
+    int state = 0;
+    int stop = 0;
+    int i = 0;
+
+    while (stop = 0) {       
+      	res = read(fd,buf,1);
+	if(res > 0){
+		switch(state){
+			case 0:
+				if(buf == 0x7E){
+					state++;
+					message[i] = 0x7E; 
+					i++;
+				}
+				break;				
+			case 1:
+				if(buf != 0x7E){
+					if(i == 4) {
+						i = 0;
+						state = 0;
+					}
+					message[i] = buf; 
+					i++;
+				} else {
+					if(i == 4){
+						message[i] = 0x7E;
+						stop = 1;
+					} else {
+						i = 0;
+						state = 0;
+					}
+				}
+				break;		
+		}
+	}
+    }
+
+    char bcc1 = message[1] ^ message[2];
+
+    if(bcc1 != message[3] || message[2] != 0x03)
+    	return -1;
+	
+    //write AU
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     int fd,c, res;
@@ -72,10 +121,12 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
+    llopen(fd);  	//llopen called here
 
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,255);   /* returns after 5 chars have been input */
-      buf[res]=0;               /* so we can printf... */
+/*
+    while (STOP==FALSE) {       
+      res = read(fd,buf,255);   
+      buf[res]=0;               
       printf(":%s:%d\n", buf, res);
       if (buf[res-1]=='\0') STOP=TRUE;
       strcat(echo, buf);
@@ -85,7 +136,7 @@ int main(int argc, char** argv)
     printf("%d bytes echoed\n", res);
 
     sleep(2);
-
+*/
   /* 
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
   */
