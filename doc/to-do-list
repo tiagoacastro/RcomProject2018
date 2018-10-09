@@ -2,11 +2,11 @@ RCOM to-do
 
 Writer:
 	- cálculo BCC2/paridade(função mais versátil);
-	- stuffing/de-stuffing
+	- stuffing/de-stuffing - mariana
 	- formatação das tramas
 	- ciclo de leitura e interpretação de resposta
 
 Reader:
-	- de-stuffing (inverso do stuffing, copy past inbound)
+	- de-stuffing (inverso do stuffing, copy pasta inbound)
 	- ciclo de leitura e interpretação de respostas (probably mesmo que o do writer)
 	- envio da resposta
