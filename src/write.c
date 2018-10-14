@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#include "write.h"
+
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
@@ -21,25 +23,27 @@
 #define START_CODE	0x7e
 #define END_CODE	0x7e
 #define ESCAPE_CODE 0x7d
-#define ADRESS		0x03
+#define ADDRESS		0x03
 #define SET_CODE 	0x03
+#define UA_CONTROL  0x07
+#define UA_BCC      (ADDRESS ^ UA_CONTROL)
 
 volatile int STOP=FALSE;
 
-int alarm_flag = 0;
+int alarm_flag = FALSE;
 int alarm_counter = 0;
-int message_recieved = 0;
+int message_recieved = FALSE;
 
 int llopen(int fd);
 
 
 void set_alarm(){
-	alarm_flag = 1;
+	alarm_flag = TRUE;
 	alarm_counter++;
 }
 
 void remove_alarm(){
-	alarm_flag = 0;
+	alarm_flag = FALSE;
 	alarm_counter = 0;
 } 
 
@@ -124,44 +128,127 @@ int main(int argc, char** argv)
     return 0;
 }
 
-int llopen(int fd){
+int sendStartMessage(fd){    
 	int res;
-	char message[5];
-	char buf[5];
+	unsigned char message[5];
 
-	message[0] = START_CODE;
-	message[1] = ADRESS;
+    message[0] = START_CODE;
+	message[1] = ADDRESS;
 	message[2] = SET_CODE;
 	message[3] = message[1]^message[2];		// calcular a paridade da mensagem
 	message[4] = END_CODE;
 
+    res = write(fd, message, 5);
+	if(res <= 0)
+    {
+        return FALSE;
+    }
+    else
+    {
+        return TRUE;
+    }
+		
+
+}
+
+/**
+ * Recebe uma mensagem e um estado e interpreta em que parte da leitura da trama de supervisao está
+ * @param message - Mensagme para ser interpretada
+ * @param state - Estado/posiçao na interpretaçao da trama
+ */
+void stateMachine_Ua(unsigned char *message, int *state){
+    switch(*state){
+
+        case 0:                             /* Esta a espera do inicio da trama (0x7E) */
+            if(*message == START_CODE){
+                *state = 1;
+            }
+            break;
+
+        case 1:     
+            if(*message == ADDRESS){            /* Está à espera do A */
+                *state = 2;
+            }
+            else if(*message == START_CODE){    /* Se tiver um 0x7E no meio da trama */
+                *state = 1;
+            }
+            else{                               /* Houve um erro e Adress está incorreto */
+                *state = 0;
+            }
+            break;
+
+        case 2:
+            if(*message == UA_CONTROL){         /* Recebe o valor de Controlo */
+                *state = 3;
+            }
+            else if(*message == START_CODE){   /* Se tiver um 0x7E no meio da trama */
+                *state = 1;
+            }
+            else{                               /* Houve um erro e Controlo não está correto */
+                *state = 0;
+            }
+            break;
+
+        case 3:
+            if(*message == UA_BCC){             /* BCC lido com sucesso */
+                *state = 4;
+            }
+            else{                               /* Erro com BCC */
+                *state = 0;
+            }
+            break;
+
+        case 4:
+            if(*message == END_CODE){           /* Recebe o ultimo 7E */
+                message_recieved = TRUE;
+                alarm(0);
+                printf("Recebeu o UA\n");
+            }
+            else{                               /* Erro no 7E */
+                *state = 0;
+            }     
+            break;
+    }
+} 
+
+int llopen(int fd){
+	char buf[5];
+    int error;
+    int res;
+    int state;
 
 	int i = 0;
-	while(alarm_counter < MAX_ALARM_COUNT && !message_recieved){
+    do{
+
+        //Write the starting message and start alarm
 
 		remove_alarm();
+        error = sendStartMessage(fd);
+        if(error == FALSE)
+            perror("Error sending starting message\n");
+			
+		alarm(TIMEOUT);
 
-		res = write(fd, message, 5);
-		if(res <= 0)
-			perror("Error writing setup message");	
-
-		alarm(3);
-
+        state = 0;          /* Variable that keeps track of the state machine state */
 		while(!alarm_flag && !message_recieved){
 
 			res = read(fd,buf+i,1);
-			if(res > 0)
-			{
-				if(buf[i] == END_CODE){
-					message_recieved = 1;
-					remove_alarm();
-				}	
-				i++;
-			}
-		
+			stateMachine_Ua(&(buf+i),&state);		
 		}
 
-	}
+	}while(alarm_counter < MAX_ALARM_COUNT && !message_recieved);
+
+    /* Debug */
+    printf("alarm_flag: %d\n alarm_counter: %d",alarm_flag,alarm_counter);
+    /* Debug */
+
+    if(alarm_flag && alarm_counter == MAX_ALARM_COUNT)
+        return FALSE;
+    else{
+        alarm_flag = FALSE;
+        alarm_counter = 0 ;
+        return TRUE;
+    }
 
 	return 0;
 }
