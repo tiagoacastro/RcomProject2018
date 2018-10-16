@@ -109,7 +109,7 @@ int main(int argc, char** argv)
 
 
     //Set the alarm
-    //(void) signal(SIGALRM,set_alarm);
+    signal(SIGALRM,set_alarm);
 
 
 	int error = llopen(fd);
@@ -229,13 +229,13 @@ int llopen(int fd){
 
         //Write the starting message and start alarm
 
-		//remove_alarm();
+		remove_alarm();
         error = sendStartMessage(fd);
         if(error == FALSE)
             perror("llopen: Error sending starting message\n");
 			
 		printf("llopen: outside inner loop\n");
-		//alarm(TIMEOUT);
+		alarm(TIMEOUT);
 
         state = 0;          /* Variable that keeps track of the state machine state */
 		while(!alarm_flag && !message_recieved){
@@ -256,20 +256,17 @@ int llopen(int fd){
 	}while(alarm_counter < MAX_ALARM_COUNT && !message_recieved);
 
     /* Debug */
-    printf("alarm_flag: %d\n alarm_counter: %d",alarm_flag,alarm_counter);
+    printf("alarm_flag: %d\n alarm_counter: %d\n",alarm_flag,alarm_counter);
     /* Debug */
 
-/*
+
     if(alarm_flag && alarm_counter == MAX_ALARM_COUNT)
-        return FALSE;
+        return 1;
     else{
         alarm_flag = FALSE;
         alarm_counter = 0 ;
-        return TRUE;
+        return 0;
     }
-    */
-
-	return 0;
 }
 
 int llwrite(int fd, char * buffer, int length) {
