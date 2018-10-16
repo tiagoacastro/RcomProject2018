@@ -93,29 +93,31 @@ int llClose(int fd) {
 }
 
 int readControlMessage(int fd, unsigned char control) {
-    unsigned char buf, message[5];
-    int res;
+    char buf[2];
+    buf[1] = '\0';
+    char message[5];
+    int res = 0;
     int retry = TRUE;
     int complete = FALSE;
     int state = 0;
     int i = 0;
 
-    while (retry = TRUE){
+    while (retry == TRUE){
       while (complete == FALSE) {
         res = read(fd,buf,1);
         if(res > 0){
-        printf("received char/n");
+        printf("%s\n", buf);
           switch(state){
             case 0:
-              if(buf == FLAG){
+              if(buf[0] == FLAG){
                 state++;
                 message[i] = FLAG;
                 i++;
               }
               break;
             case 1:
-              if(buf != FLAG){
-                message[i] = buf;
+              if(buf[0] != FLAG){
+                message[i] = buf[0];
                 i++;
                 if(i==4)
                   state++;
@@ -125,11 +127,11 @@ int readControlMessage(int fd, unsigned char control) {
               }
               break;
             case 2:
-              if(buf != FLAG){
+              if(buf[0] != FLAG){
                 i = 0;
                 state = 0;
               } else {
-                message[i] = buf;
+                message[i] = buf[0];
                 complete = TRUE;
               }
               break;
@@ -145,8 +147,6 @@ int readControlMessage(int fd, unsigned char control) {
         int i = 0;
       }
     }
-
-    printf("%s", message);
 	
     return 0;
 }
