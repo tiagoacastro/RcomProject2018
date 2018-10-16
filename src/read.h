@@ -5,7 +5,9 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h> 
+#include <strings.h>
+#include <string.h> 
+#include <signal.h>
 
 /* baudrate settings are defined in <asm/termbits.h>, which is
 included by <termios.h> */
@@ -13,6 +15,9 @@ included by <termios.h> */
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE         0
 #define TRUE          1
+
+#define MAX_ALARM_COUNT 3
+#define TIMEOUT 5
 
 #define FLAG          0x7E
 #define C_SET         0x03

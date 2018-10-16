@@ -1,14 +1,30 @@
 /*Non-Canonical Input Processing*/
 #include "read.h"
 
+int alarm_flag = FALSE;
+int alarm_counter = 0;
+int message_recieved = FALSE;
 struct termios oldtio, newtio;
 
+void set_alarm(){
+  alarm_flag = TRUE;
+  alarm_counter++;
+}
+
+void reset_alarm(){
+  alarm_flag = FALSE;
+  alarm_counter = 0;
+}
+
 int main(int argc, char** argv) {
+
   int fd;
 
+  printf("%i\n", argc);
+
   if ( (argc < 2) ||
-       ((strcmp("/dev/ttyS0", argv[1])!=0) &&
-        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
+       ((strcmp("/dev/ttyS0", argv[2])!=0) &&
+        (strcmp("/dev/ttyS1", argv[2])!=0) )) {
     printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
   }
@@ -17,8 +33,8 @@ int main(int argc, char** argv) {
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
-  fd = open(argv[1], O_RDWR | O_NOCTTY );
-  if (fd <0) {perror(argv[1]); exit(-1); }
+  fd = open(argv[2], O_RDWR | O_NOCTTY );
+  if (fd <0) {perror(argv[2]); exit(-1); }
 
   if(llOpen(fd) == -1){
     printf("Failed to connect, timed out\n");
@@ -69,6 +85,8 @@ int llOpen(int fd) {
     exit(-1);
   }
 
+  signal(SIGALRM, set_alarm);
+
   //Check conection
   if (readControlMessage(fd, C_SET) == -1)
     return -1;
@@ -93,8 +111,7 @@ int llClose(int fd) {
 }
 
 int readControlMessage(int fd, unsigned char control) {
-    char buf[2];
-    buf[1] = '\0';
+    char buf[1];
     char message[5];
     int res = 0;
     int retry = TRUE;
@@ -102,7 +119,11 @@ int readControlMessage(int fd, unsigned char control) {
     int state = 0;
     int i = 0;
 
-    while (retry == TRUE){
+    reset_alarm();
+
+    alarm(TIMEOUT);
+
+    while (retry == TRUE && alarm_counter < MAX_ALARM_COUNT) {
       while (complete == FALSE) {
         res = read(fd,buf,1);
         if(res > 0){
@@ -139,15 +160,23 @@ int readControlMessage(int fd, unsigned char control) {
         }
       }
 
-      if(message[0] == FLAG && message[1] == A && message[2] == control && message[3] == A^control && message[4] == FLAG)
+      if(message[0] == FLAG 
+          && message[1] == A 
+          && message[2] == control 
+          && message[3] == (A^control) 
+          && message[4] == FLAG)
       	retry = FALSE;
       else {
-        int state = 0;
-        int complete = FALSE;
-        int i = 0;
+        state = 0;
+        complete = FALSE;
+        i = 0;
       }
     }
-	
+
+    if(alarm_flag && alarm_counter == MAX_ALARM_COUNT) {
+      return -1;
+    }
+
     return 0;
 }
 
