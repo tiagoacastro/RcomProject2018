@@ -91,7 +91,7 @@ int llOpen(int fd) {
   if (readControlMessage(fd, C_SET) == -1)
     return -1;
   else
-    sendControlMessage(fd, C_UA);
+    writeControlMessage(fd, C_UA);
 
   return 0;
 }
@@ -100,7 +100,7 @@ int llClose(int fd) {
   if (readControlMessage(fd, C_DISC) == -1)
     return -1;
 
-  sendControlMessage(fd, C_DISC);
+  writeControlMessage(fd, C_DISC);
 
   if (readControlMessage(fd, C_UA) == -1)
     return -1;
@@ -160,10 +160,10 @@ int readControlMessage(int fd, unsigned char control) {
         }
       }
 
-      if(message[0] == FLAG 
-          && message[1] == A 
-          && message[2] == control 
-          && message[3] == (A^control) 
+      if(message[0] == FLAG
+          && message[1] == A
+          && message[2] == control
+          && message[3] == (A^control)
           && message[4] == FLAG)
       	retry = FALSE;
       else {
@@ -180,12 +180,12 @@ int readControlMessage(int fd, unsigned char control) {
     return 0;
 }
 
-void sendControlMessage(int fd, unsigned char C) {
+void writeControlMessage(int fd, unsigned char control) {
   unsigned char message[5];
   message[0] = FLAG;
   message[1] = A;
-  message[2] = C;
-  message[3] = A ^ C;
+  message[2] = control;
+  message[3] = A ^ control;
   message[4] = FLAG;
   write(fd, message, 5);
 }
