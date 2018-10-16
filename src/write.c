@@ -36,6 +36,8 @@ int message_recieved = FALSE;
 
 int llopen(int fd);
 
+int sendStartMessage(int fd);
+
 
 void set_alarm(){
 	alarm_flag = TRUE;
@@ -49,10 +51,8 @@ void remove_alarm(){
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd;
     struct termios oldtio,newtio;
-    char buf[255];
-    int i, sum = 0, speed = 0;
     
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
@@ -69,7 +69,9 @@ int main(int argc, char** argv)
 
 
     fd = open(argv[1], O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(argv[1]); exit(-1); }
+	if (fd <0) {perror(argv[1]); exit(-1); }
+
+	printf("Serial port open\n");
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
       perror("tcgetattr");
@@ -107,7 +109,8 @@ int main(int argc, char** argv)
 
 
     //Set the alarm
-    (void) signal(SIGALRM,set_alarm);
+    //(void) signal(SIGALRM,set_alarm);
+
 
 	int error = llopen(fd);
 	if(error != 0)
@@ -128,7 +131,7 @@ int main(int argc, char** argv)
     return 0;
 }
 
-int sendStartMessage(fd){    
+int sendStartMessage(int fd){    
 	int res;
 	unsigned char message[5];
 
@@ -138,17 +141,19 @@ int sendStartMessage(fd){
 	message[3] = message[1]^message[2];		// calcular a paridade da mensagem
 	message[4] = END_CODE;
 
+	printf("Antes de enviar a mensagem\n");
+
     res = write(fd, message, 5);
+    printf("Message sent: %c\n", message[4]);
 	if(res <= 0)
     {
         return FALSE;
     }
     else
     {
+    	printf("Start Message Written\n");
         return TRUE;
     }
-		
-
 }
 
 /**
@@ -212,36 +217,49 @@ void stateMachine_Ua(unsigned char *message, int *state){
 } 
 
 int llopen(int fd){
-	char buf[5];
+	unsigned char buf[5];
     int error;
     int res;
     int state;
+
+    printf("llopen: entered function\n");
 
 	int i = 0;
     do{
 
         //Write the starting message and start alarm
 
-		remove_alarm();
+		//remove_alarm();
         error = sendStartMessage(fd);
         if(error == FALSE)
-            perror("Error sending starting message\n");
+            perror("llopen: Error sending starting message\n");
 			
-		alarm(TIMEOUT);
+		printf("llopen: outside inner loop\n");
+		//alarm(TIMEOUT);
 
         state = 0;          /* Variable that keeps track of the state machine state */
 		while(!alarm_flag && !message_recieved){
 
-			res = read(fd,buf+i,1);
-			stateMachine_Ua(&(buf+i),&state);		
-		}
+			printf("llopen : inside inner loop\n");
 
+			res = read(fd,buf+i,1);
+			if(res <= 0){
+				perror("llopen: read nothing\n");
+			}
+			else
+			{
+				printf("llope: Recieved answer\n");
+			}
+			stateMachine_Ua(&(buf[i]),&state);		
+		}
+		i++;
 	}while(alarm_counter < MAX_ALARM_COUNT && !message_recieved);
 
     /* Debug */
     printf("alarm_flag: %d\n alarm_counter: %d",alarm_flag,alarm_counter);
     /* Debug */
 
+/*
     if(alarm_flag && alarm_counter == MAX_ALARM_COUNT)
         return FALSE;
     else{
@@ -249,6 +267,7 @@ int llopen(int fd){
         alarm_counter = 0 ;
         return TRUE;
     }
+    */
 
 	return 0;
 }
@@ -269,6 +288,8 @@ char * concat(const char * s1, const char * s2) {
 }
 
 char * packetStuffing(char * buf, int len) {
+
+/*
 
     char startCodeStuffing[2] = [ESCAPE_CODE, START_CODE ^ 0x20];
     char escapeCodeStuffing[2] = [ESCAPE_CODE, ESCAPE_CODE ^ 0x20];
@@ -307,6 +328,8 @@ char * packetStuffing(char * buf, int len) {
     }
 
     return aux;
+
+    */
 }
 
 
