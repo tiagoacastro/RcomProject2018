@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-int llOpen() {
+int llOpen(int fd) {
   if (tcgetattr(fd, &oldtio) == -1) { /* save current port settings */
     perror("tcgetattr");
     exit(-1);
@@ -78,13 +78,13 @@ int llOpen() {
   return 0;
 }
 
-int llClose() {
-  if (readControlMessage(fd, DISC_C) == -1)
+int llClose(int fd) {
+  if (readControlMessage(fd, C_DISC) == -1)
     return -1;
 
-  sendControlMessage(fd, DISC_C);
+  sendControlMessage(fd, C_DISC);
 
-  if (readControlMessage(fd, UA_C) == -1)
+  if (readControlMessage(fd, C_UA) == -1)
     return -1;
 
   tcsetattr(fd, TCSANOW, &oldtio);
@@ -93,7 +93,8 @@ int llClose() {
 }
 
 int readControlMessage(int fd, unsigned char control) {
-    unsigned char buf;
+    unsigned char buf, message[5];
+    int res;
     int retry = TRUE;
     int complete = FALSE;
     int state = 0;
@@ -103,6 +104,7 @@ int readControlMessage(int fd, unsigned char control) {
       while (complete == FALSE) {
         res = read(fd,buf,1);
         if(res > 0){
+        printf("received char/n");
           switch(state){
             case 0:
               if(buf == FLAG){
@@ -144,6 +146,8 @@ int readControlMessage(int fd, unsigned char control) {
       }
     }
 
+    printf("%s", message);
+	
     return 0;
 }
 
