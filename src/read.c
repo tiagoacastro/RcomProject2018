@@ -3,7 +3,7 @@
 
 int alarm_flag = FALSE;
 int alarm_counter = 0;
-int message_recieved = FALSE;
+int message_received = FALSE;
 struct termios oldtio, newtio;
 
 void alarm_handler(){ 
@@ -197,5 +197,9 @@ void writeControlMessage(int fd, unsigned char control) {
   message[3] = A ^ control;
   message[4] = FLAG;
   write(fd, message, 5);
+}
+
+int llRead(int fd) {
+	return 0;
 }
 

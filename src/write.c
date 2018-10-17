@@ -6,17 +6,22 @@ volatile int STOP=FALSE;
 
 int alarm_flag = FALSE;
 int alarm_counter = 0;
-int message_recieved = FALSE;
+int message_received = FALSE;
 
-void set_alarm(){
+void alarm_handler() { 
 	alarm_flag = TRUE;
 	alarm_counter++;
+	printf("alarm counter: %d\n", alarm_counter);
 }
 
-void remove_alarm(){
-	alarm_flag = FALSE;
+void reset_alarm_flag(){
+  alarm_flag = FALSE;
+}
+
+void reset_alarm_counter() {
 	alarm_counter = 0;
 }
+
 
 int main(int argc, char** argv)
 {
@@ -78,7 +83,7 @@ int main(int argc, char** argv)
 
 
     //Set the alarm
-    signal(SIGALRM,set_alarm);
+    signal(SIGALRM,alarm_handler);
 
 
 	int error = llopen(fd);
@@ -110,7 +115,7 @@ int sendStartMessage(int fd){
 	message[3] = message[1]^message[2];		// calcular a paridade da mensagem
 	message[4] = END_CODE;
 
-	printf("Antes de enviar a mensagem\n");
+	//printf("Antes de enviar a mensagem\n");
 
     res = write(fd, message, 5);
     printf("Message sent: %c\n", message[4]);
@@ -174,7 +179,7 @@ void stateMachine_Ua(unsigned char *message, int *state){
 
         case 4:
             if(*message == END_CODE){           /* Recebe o ultimo 7E */
-                message_recieved = TRUE;
+                message_received = TRUE;
                 alarm(0);
                 printf("Recebeu o UA\n");
             }
@@ -193,39 +198,42 @@ int llopen(int fd){
 
     printf("llopen: entered function\n");
 
+	reset_alarm_flag();
+	reset_alarm_counter();
+
 	int i = 0;
     do{
 
-        //Write the starting message and start alarm
+    	//Write the starting message and start alarm
 
-	remove_alarm();
         error = sendStartMessage(fd);
         if(error == FALSE)
             	perror("llopen: Error sending starting message\n");
 
-		printf("llopen: outside inner loop\n");
-		alarm(TIMEOUT);
+				//printf("llopen: outside inner loop\n");
+				alarm(TIMEOUT);
 
         	state = 0;          /* Variable that keeps track of the state machine state */
-		while(!alarm_flag && !message_recieved){
+		while(!alarm_flag && !message_received){
 
-			printf("llopen : inside inner loop\n");
+			//printf("llopen : inside inner loop\n");
 
 			res = read(fd,buf+i,1);
 			if(res <= 0){
-				perror("llopen: read nothing\n");
+				//perror("llopen: read nothing\n");
 			}
 			else
 			{
-				printf("llope: Recieved answer\n");
+				printf("llopen: Received answer\n");
 			}
 			stateMachine_Ua(&(buf[i]),&state);
-		}
+		}	
+		reset_alarm_flag();
 		i++;
-	}while(alarm_counter < MAX_ALARM_COUNT && !message_recieved);
+	}while(alarm_counter < MAX_ALARM_COUNT && !message_received);
 
     /* Debug */
-    printf("alarm_flag: %d\n alarm_counter: %d\n",alarm_flag,alarm_counter);
+    //printf("alarm_flag: %d\n alarm_counter: %d\n",alarm_flag,alarm_counter);
     /* Debug */
 
 
@@ -296,4 +304,5 @@ char * packetStuffing(char * buf, int len) {
     return aux;
 
     */
+	return 0;
 }

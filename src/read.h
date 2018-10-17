@@ -30,3 +30,4 @@ int llOpen(int fd);
 int llClose(int fd);
 int readControlMessage(int fd, unsigned char control);
 void writeControlMessage(int fd, unsigned char control);
+int llRead(int fd);
