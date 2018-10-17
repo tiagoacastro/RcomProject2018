@@ -90,10 +90,8 @@ int main(int argc, char** argv)
 	if(error != 0)
 		perror("Error with llopen\n");
 
-  /*
-    O ciclo FOR e as instru��es seguintes devem ser alterados de modo a respeitar
-    o indicado no gui�o
-  */
+
+	llclose(fd);
 
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
@@ -118,7 +116,7 @@ int sendControlMessage(int fd, unsigned char control){
 	//printf("Antes de enviar a mensagem\n");
 
     res = write(fd, message, 5);
-    printf("Message sent: %c\n", message[4]);
+    printf("Message sent: 0x%02x\n", message[2]);
 	if(res <= 0)
     {
         return FALSE;
@@ -181,13 +179,53 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
             if(*message == FLAG){           /* Recebe o ultimo 7E */
                 message_received = TRUE;
                 alarm(0);
-                printf("Recebeu o UA\n");
+                printf("Recebeu 0x%02x\n", control);
             }
             else{                               /* Erro no 7E */
                 *state = 0;
             }
             break;
     }
+}
+
+int stopAndWaitControl(int fd, unsigned char control) {
+
+	int res = 0;
+	unsigned char buf[1];
+	int state = 0;
+
+	reset_alarm_flag();
+	reset_alarm_counter();
+	message_received = FALSE;
+	
+	do { 
+		
+		sendControlMessage(fd, control);
+		printf("sent control message, waiting response\n");
+		alarm(TIMEOUT);
+		state = 0;
+		while(!alarm_flag && !message_received) {
+				res = read(fd, buf, 1);
+				if(res <= 0){
+					perror("stopAndWait: read nothing\n");
+				}
+				else
+				{
+					printf("stopAndWait: Received answer: 0x%02x\n", *buf);
+				} 
+				stateMachine(buf, &state, control);	
+		}
+		reset_alarm_flag();
+
+	} while(alarm_counter < MAX_ALARM_COUNT && !message_received);	
+		
+	return 0;
+	
+}
+
+int readControlMessage(int fd, unsigned char control) {
+
+	
 }
 
 int llopen(int fd){
@@ -244,6 +282,11 @@ int llopen(int fd){
         alarm_counter = 0 ;
         return 0;
     }
+}
+
+int llclose(int fd) {
+	stopAndWaitControl(fd, CONTROL_DISC);
+	sendControlMessage(fd, CONTROL_UA);
 }
 
 int llwrite(int fd, char * buffer, int length) {

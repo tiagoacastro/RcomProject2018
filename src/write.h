@@ -22,6 +22,7 @@
 #define ADDRESS		      0x03
 #define CONTROL_SET 	  0x03
 #define CONTROL_UA      0x07
+#define CONTROL_DISC   	0x0b
 #define BCC_UA          (ADDRESS ^ CONTROL_UA)
 #define ESCAPE_CODE     0x7d
 
