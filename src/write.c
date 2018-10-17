@@ -224,7 +224,7 @@ int llopen(int fd){
 			}
 			else
 			{
-				printf("llopen: Received answer\n");
+				//printf("llopen: Received answer\n");
 			}
 			stateMachine(&(buf[i]),&state, CONTROL_UA);
 		}	
