@@ -155,6 +155,8 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
             break;
 
         case 2:
+						printf("message: 0x%02x\n",*message);
+						printf("control: 0x%02x\n",control);
             if(*message == control){         /* Recebe o valor de Controlo */
                 *state = 3;
             }
@@ -190,6 +192,8 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
 
 int stopAndWaitControl(int fd, unsigned char control) {
 
+	printf("entered stop and wait\n");
+
 	int res = 0;
 	unsigned char buf[1];
 	int state = 0;
@@ -205,6 +209,7 @@ int stopAndWaitControl(int fd, unsigned char control) {
 		alarm(TIMEOUT);
 		state = 0;
 		while(!alarm_flag && !message_received) {
+				printf("state:%d",state);
 				res = read(fd, buf, 1);
 				if(res <= 0){
 					perror("stopAndWait: read nothing\n");
@@ -213,7 +218,11 @@ int stopAndWaitControl(int fd, unsigned char control) {
 				{
 					printf("stopAndWait: Received answer: 0x%02x\n", *buf);
 				} 
-				stateMachine(buf, &state, control);	
+
+				if(control == CONTROL_SET)
+					stateMachine(buf, &state, CONTROL_UA);
+				else	
+					stateMachine(buf, &state, control);
 		}
 		reset_alarm_flag();
 
@@ -223,70 +232,18 @@ int stopAndWaitControl(int fd, unsigned char control) {
 	
 }
 
-int readControlMessage(int fd, unsigned char control) {
 
-	
-}
 
 int llopen(int fd){
-	unsigned char buf[5];
-    int error;
-    int res;
-    int state;
-
-    printf("llopen: entered function\n");
-
-	reset_alarm_flag();
-	reset_alarm_counter();
-
-	int i = 0;
-    do{
-
-    	//Write the starting message and start alarm
-
-        error = sendControlMessage(fd, CONTROL_SET);
-        if(error == FALSE)
-            	perror("llopen: Error sending starting message\n");
-
-				//printf("llopen: outside inner loop\n");
-				alarm(TIMEOUT);
-
-        	state = 0;          /* Variable that keeps track of the state machine state */
-		while(!alarm_flag && !message_received){
-
-			//printf("llopen : inside inner loop\n");
-
-			res = read(fd,buf+i,1);
-			if(res <= 0){
-				//perror("llopen: read nothing\n");
-			}
-			else
-			{
-				//printf("llopen: Received answer\n");
-			}
-			stateMachine(&(buf[i]),&state, CONTROL_UA);
-		}	
-		reset_alarm_flag();
-		i++;
-	}while(alarm_counter < MAX_ALARM_COUNT && !message_received);
-
-    /* Debug */
-    //printf("alarm_flag: %d\n alarm_counter: %d\n",alarm_flag,alarm_counter);
-    /* Debug */
-
-
-    if(alarm_flag && alarm_counter == MAX_ALARM_COUNT)
-        return 1;
-    else{
-        alarm_flag = FALSE;
-        alarm_counter = 0 ;
-        return 0;
-    }
+	stopAndWaitControl(fd, CONTROL_SET);
+return 0;
 }
 
 int llclose(int fd) {
 	stopAndWaitControl(fd, CONTROL_DISC);
 	sendControlMessage(fd, CONTROL_UA);
+
+return 0;
 }
 
 int llwrite(int fd, char * buffer, int length) {

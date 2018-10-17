@@ -29,6 +29,7 @@
 void set_alarm();
 void remove_alarm();
 int llopen(int fd);
+int llclose(int fd);
 int sendControlMessage(int fd, unsigned char control);
 void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
