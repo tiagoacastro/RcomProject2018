@@ -6,25 +6,26 @@ int alarm_counter = 0;
 int message_recieved = FALSE;
 struct termios oldtio, newtio;
 
-void set_alarm(){
+void alarm_handler(){ 
   alarm_flag = TRUE;
   alarm_counter++;
 }
 
-void reset_alarm(){
+void reset_alarm_flag(){
   alarm_flag = FALSE;
-  alarm_counter = 0;
+}
+
+void reset_alarm_counter() {
+	alarm_counter = 0;
 }
 
 int main(int argc, char** argv) {
 
   int fd;
 
-  printf("%i\n", argc);
-
   if ( (argc < 2) ||
-       ((strcmp("/dev/ttyS0", argv[2])!=0) &&
-        (strcmp("/dev/ttyS1", argv[2])!=0) )) {
+       ((strcmp("/dev/ttyS0", argv[1])!=0) &&
+        (strcmp("/dev/ttyS1", argv[1])!=0) )) {
     printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
     exit(1);
   }
@@ -33,7 +34,7 @@ int main(int argc, char** argv) {
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 
-  fd = open(argv[2], O_RDWR | O_NOCTTY );
+  fd = open(argv[1], O_RDWR | O_NOCTTY );
   if (fd <0) {perror(argv[2]); exit(-1); }
 
   if(llOpen(fd) == -1){
@@ -85,7 +86,7 @@ int llOpen(int fd) {
     exit(-1);
   }
 
-  signal(SIGALRM, set_alarm);
+  signal(SIGALRM, alarm_handler);
 
   //Check conection
   if (readControlMessage(fd, C_SET) == -1)
@@ -119,15 +120,15 @@ int readControlMessage(int fd, unsigned char control) {
     int state = 0;
     int i = 0;
 
-    reset_alarm();
+    reset_alarm_flag();
+		reset_alarm_counter();
 
     alarm(TIMEOUT);
 
     while (retry == TRUE && alarm_counter < MAX_ALARM_COUNT) {
-      while (complete == FALSE) {
+      while (complete == FALSE && !alarm_flag) {
         res = read(fd,buf,1);
         if(res > 0){
-        printf("%s\n", buf);
           switch(state){
             case 0:
               if(buf[0] == FLAG){
@@ -159,6 +160,14 @@ int readControlMessage(int fd, unsigned char control) {
           }
         }
       }
+	
+			if (alarm_flag) {
+				alarm(TIMEOUT);
+				if (alarm_counter < MAX_ALARM_COUNT) {
+					reset_alarm_flag();
+				}
+				continue;
+			}
 
       if(message[0] == FLAG
           && message[1] == A
@@ -189,3 +198,4 @@ void writeControlMessage(int fd, unsigned char control) {
   message[4] = FLAG;
   write(fd, message, 5);
 }
+

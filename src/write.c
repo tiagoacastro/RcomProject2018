@@ -198,15 +198,15 @@ int llopen(int fd){
 
         //Write the starting message and start alarm
 
-		remove_alarm();
+	remove_alarm();
         error = sendStartMessage(fd);
         if(error == FALSE)
-            perror("llopen: Error sending starting message\n");
+            	perror("llopen: Error sending starting message\n");
 
 		printf("llopen: outside inner loop\n");
 		alarm(TIMEOUT);
 
-        state = 0;          /* Variable that keeps track of the state machine state */
+        	state = 0;          /* Variable that keeps track of the state machine state */
 		while(!alarm_flag && !message_recieved){
 
 			printf("llopen : inside inner loop\n");
