@@ -18,20 +18,20 @@
 
 #define MAX_ALARM_COUNT 3
 
-#define START_CODE	    0x7e
-#define END_CODE	      0x7e
-#define ESCAPE_CODE     0x7d
+#define FLAG				    0x7e
 #define ADDRESS		      0x03
-#define SET_CODE 	      0x03
-#define UA_CONTROL      0x07
-#define UA_BCC          (ADDRESS ^ UA_CONTROL)
+#define CONTROL_SET 	  0x03
+#define CONTROL_UA      0x07
+#define BCC_UA          (ADDRESS ^ CONTROL_UA)
+#define ESCAPE_CODE     0x7d
 
 void set_alarm();
 void remove_alarm();
 int llopen(int fd);
-int sendStartMessage(int fd);
-void stateMachine_Ua(unsigned char *message, int *state);
+int sendControlMessage(int fd, unsigned char control);
+void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
 int llwrite(int fd, char * buffer, int length);
 char * concat(const char * s1, const char * s2);
 char * packetStuffing(char * buf, int len);
+

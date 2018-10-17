@@ -105,15 +105,15 @@ int main(int argc, char** argv)
     return 0;
 }
 
-int sendStartMessage(int fd){
+int sendControlMessage(int fd, unsigned char control){
 	int res;
 	unsigned char message[5];
 
-    message[0] = START_CODE;
+  message[0] = FLAG;
 	message[1] = ADDRESS;
-	message[2] = SET_CODE;
+	message[2] = control;
 	message[3] = message[1]^message[2];		// calcular a paridade da mensagem
-	message[4] = END_CODE;
+	message[4] = FLAG;
 
 	//printf("Antes de enviar a mensagem\n");
 
@@ -135,11 +135,11 @@ int sendStartMessage(int fd){
  * @param message - Mensagme para ser interpretada
  * @param state - Estado/posiçao na interpretaçao da trama
  */
-void stateMachine_Ua(unsigned char *message, int *state){
+void stateMachine(unsigned char *message, int *state, unsigned char control){
     switch(*state){
 
         case 0:                             /* Esta a espera do inicio da trama (0x7E) */
-            if(*message == START_CODE){
+            if(*message == FLAG){
                 *state = 1;
             }
             break;
@@ -148,7 +148,7 @@ void stateMachine_Ua(unsigned char *message, int *state){
             if(*message == ADDRESS){            /* Está à espera do A */
                 *state = 2;
             }
-            else if(*message == START_CODE){    /* Se tiver um 0x7E no meio da trama */
+            else if(*message == FLAG){    /* Se tiver um 0x7E no meio da trama */
                 *state = 1;
             }
             else{                               /* Houve um erro e Adress está incorreto */
@@ -157,10 +157,10 @@ void stateMachine_Ua(unsigned char *message, int *state){
             break;
 
         case 2:
-            if(*message == UA_CONTROL){         /* Recebe o valor de Controlo */
+            if(*message == control){         /* Recebe o valor de Controlo */
                 *state = 3;
             }
-            else if(*message == START_CODE){   /* Se tiver um 0x7E no meio da trama */
+            else if(*message == FLAG){   /* Se tiver um 0x7E no meio da trama */
                 *state = 1;
             }
             else{                               /* Houve um erro e Controlo não está correto */
@@ -169,7 +169,7 @@ void stateMachine_Ua(unsigned char *message, int *state){
             break;
 
         case 3:
-            if(*message == UA_BCC){             /* BCC lido com sucesso */
+            if(*message == (control ^ ADDRESS)){             /* BCC lido com sucesso */
                 *state = 4;
             }
             else{                               /* Erro com BCC */
@@ -178,7 +178,7 @@ void stateMachine_Ua(unsigned char *message, int *state){
             break;
 
         case 4:
-            if(*message == END_CODE){           /* Recebe o ultimo 7E */
+            if(*message == FLAG){           /* Recebe o ultimo 7E */
                 message_received = TRUE;
                 alarm(0);
                 printf("Recebeu o UA\n");
@@ -206,7 +206,7 @@ int llopen(int fd){
 
     	//Write the starting message and start alarm
 
-        error = sendStartMessage(fd);
+        error = sendControlMessage(fd, CONTROL_SET);
         if(error == FALSE)
             	perror("llopen: Error sending starting message\n");
 
@@ -226,7 +226,7 @@ int llopen(int fd){
 			{
 				printf("llopen: Received answer\n");
 			}
-			stateMachine_Ua(&(buf[i]),&state);
+			stateMachine(&(buf[i]),&state, CONTROL_UA);
 		}	
 		reset_alarm_flag();
 		i++;
@@ -306,3 +306,4 @@ char * packetStuffing(char * buf, int len) {
     */
 	return 0;
 }
+
