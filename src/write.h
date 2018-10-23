@@ -24,7 +24,11 @@
 #define CONTROL_UA      0x07
 #define CONTROL_DISC   	0x0b
 #define BCC_UA          (ADDRESS ^ CONTROL_UA)
-#define ESCAPE_CODE     0x7d
+#define PACKET_HEADER_SIZE	6		//Number of bytes used around an information packet 
+
+#define ESCAPE_CODE     	0x7d
+#define STUFF_FLAG_CODE		0x5e
+#define STUFF_ESCAPE_CODE	0x5d
 
 void set_alarm();
 void remove_alarm();
@@ -34,6 +38,6 @@ int sendControlMessage(int fd, unsigned char control);
 void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
 int llwrite(int fd, char * buffer, int length);
-char * concat(const char * s1, const char * s2);
-char * packetStuffing(char * buf, int len);
+unsigned char * concat(const unsigned char * s1, const unsigned char * s2);
+unsigned char * packetStuffing(unsigned char * buf, int len);
 

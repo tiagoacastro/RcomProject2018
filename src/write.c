@@ -11,7 +11,7 @@ int message_received = FALSE;
 void alarm_handler() { 
 	alarm_flag = TRUE;
 	alarm_counter++;
-	printf("alarm counter: %d\n", alarm_counter);
+	//printf("alarm counter: %d\n", alarm_counter);
 }
 
 void reset_alarm_flag(){
@@ -87,12 +87,12 @@ int main(int argc, char** argv)
 
 
 	int error = llopen(fd);
-	if(error != 0)
+	if(error != 0){
 		perror("Error with llopen\n");
-
+        exit(1);
+    }
 
 	llclose(fd);
-
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
@@ -123,7 +123,7 @@ int sendControlMessage(int fd, unsigned char control){
     }
     else
     {
-    	printf("Start Message Written\n");
+    	printf("Control message sent\n");
         return TRUE;
     }
 }
@@ -155,8 +155,6 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
             break;
 
         case 2:
-						printf("message: 0x%02x\n",*message);
-						printf("control: 0x%02x\n",control);
             if(*message == control){         /* Recebe o valor de Controlo */
                 *state = 3;
             }
@@ -190,7 +188,7 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
     }
 }
 
-int stopAndWaitControl(int fd, unsigned char control) {
+int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control_expecting) {
 
 	printf("entered stop and wait\n");
 
@@ -202,56 +200,90 @@ int stopAndWaitControl(int fd, unsigned char control) {
 	reset_alarm_counter();
 	message_received = FALSE;
 	
-	do { 
+	while(alarm_counter < MAX_ALARM_COUNT && !message_received){
 		
-		sendControlMessage(fd, control);
+		sendControlMessage(fd, control_sent);
 		printf("sent control message, waiting response\n");
 		alarm(TIMEOUT);
 		state = 0;
 		while(!alarm_flag && !message_received) {
-				printf("state:%d",state);
 				res = read(fd, buf, 1);
 				if(res <= 0){
-					perror("stopAndWait: read nothing\n");
+					//perror("stopAndWait: read nothing\n");
 				}
 				else
 				{
 					printf("stopAndWait: Received answer: 0x%02x\n", *buf);
-				} 
-
-				if(control == CONTROL_SET)
-					stateMachine(buf, &state, CONTROL_UA);
-				else	
-					stateMachine(buf, &state, control);
+				} 	
+				stateMachine(buf, &state, control_expecting);
 		}
 		reset_alarm_flag();
 
-	} while(alarm_counter < MAX_ALARM_COUNT && !message_received);	
-		
-	return 0;
+        printf("Alarm counter %d\n", alarm_counter);
+
+	};
+
+    if(alarm_counter < MAX_ALARM_COUNT){
+        return 0;
+    }
+    else
+        return 1;
+  
 	
 }
 
 
-
 int llopen(int fd){
-	stopAndWaitControl(fd, CONTROL_SET);
-return 0;
+	return stopAndWaitControl(fd, CONTROL_SET,CONTROL_UA);
 }
 
 int llclose(int fd) {
-	stopAndWaitControl(fd, CONTROL_DISC);
+	stopAndWaitControl(fd, CONTROL_DISC,CONTROL_DISC);
 	sendControlMessage(fd, CONTROL_UA);
-
-return 0;
-}
-
-int llwrite(int fd, char * buffer, int length) {
 
     return 0;
 }
 
-char * concat(const char * s1, const char * s2) {
+/**
+* Calculate the parity of the message of the argument
+* @param message - pointer to the message which parity wants to be calculated
+* @param size - size of the message sent
+* @returns the parity of the message in form of a unsigned char
+*/
+unsigned char generateBCC2(unsigned char *message, unsigned int sizeOfMessage){
+
+    unsigned char result = message[0];
+
+    int i;
+    for(i = 1; i < sizeOfMessage; i++){
+        result = result ^ message[i]; 
+    }
+
+    return result;
+}
+
+/**
+* 
+*/
+int llwrite(int fd, char * buffer, int length) {
+
+    //bcc2
+    unsigned char BCC2 = generateBCC2(buffer,length);
+    int sizeBCC2 = 1;
+    unsigned char *stuffedBCC2 = (unsigned char *)malloc(sizeof(unsigned char));
+
+    //create packet header 
+
+    //stuffing
+
+    //concatenate packet header and stuffed message
+
+    //sending packages of the file at once
+
+    return 0;
+}
+
+unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
 
     const size_t len1 = strlen(s1);
     const size_t len2 = strlen(s2);
@@ -261,49 +293,41 @@ char * concat(const char * s1, const char * s2) {
     return result;
 }
 
-char * packetStuffing(char * buf, int len) {
+/**
+*   Stuffs the message in buf to prevent it from having the char FLAG which would cause a problem while reading
+*   @param buf - message to be stuffed
+*   @param len - length of the message to be stuffed
+*   @return the message but stuffed (with no FLAGS in it)
+*/
+unsigned char *packetStuffing(unsigned char * message, int size) {
+    //Counter for the original message
+    int i;
+    //Counter for the new message
+    int j;
+    int sizeFinalMessage = 1;
+    unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char));
 
-/*
-
-    char startCodeStuffing[2] = [ESCAPE_CODE, START_CODE ^ 0x20];
-    char escapeCodeStuffing[2] = [ESCAPE_CODE, ESCAPE_CODE ^ 0x20];
-
-    char * aux = malloc (1);
-    int index, code, auxLength = 1;
-    char * ptr;
-    int flag = 1;
-
-    while(flag) {
-
-        ptr = strch(buf, START_CODE);
-        if (!pos) {
-            ptr = strch(buf, ESCAPE_CODE);
-            if (!ptr) {
-                code = ESCAPE_CODE;
-            } else {
-                flag = 0;
-                continue;
-            }
-        } else {
-            code = START_CODE;
+    //Loop through all the old message and generate the new one
+    for(i = 0; i < size ; i++){
+        if(message[i] == FLAG){
+            finalMessage = (unsigned char *)realloc(finalMessage,++sizeFinalMessage);
+            finalMessage[j] = ESCAPE_CODE;
+            finalMessage[j+1] = STUFF_FLAG_CODE;   
+            j += 2;
         }
+        else if(message[i] == ESCAPE_CODE){
+            finalMessage = (unsigned char *)realloc(finalMessage,++sizeFinalMessage);
+            finalMessage[j] = ESCAPE_CODE;
+            finalMessage[j+1] = STUFF_ESCAPE_CODE;
 
-        index = ptr - buf;
-
-        switch(code) {
-            case START_CODE:
-            break;
-            case ESCAPE_CODE:
-            default:
-            break;
+            j+=2;
         }
-
-
+        else{
+            finalMessage[j] = message[i];
+            j++;
+        }
     }
 
-    return aux;
-
-    */
-	return 0;
+	return finalMessage;
 }
 
