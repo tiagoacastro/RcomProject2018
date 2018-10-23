@@ -1,23 +1,7 @@
 /*Non-Canonical Input Processing*/
 #include "read.h"
 
-int alarm_flag = FALSE;
-int alarm_counter = 0;
-int message_received = FALSE;
 struct termios oldtio, newtio;
-
-void alarm_handler(){ 
-  alarm_flag = TRUE;
-  alarm_counter++;
-}
-
-void reset_alarm_flag(){
-  alarm_flag = FALSE;
-}
-
-void reset_alarm_counter() {
-	alarm_counter = 0;
-}
 
 int main(int argc, char** argv) {
 
@@ -37,19 +21,13 @@ int main(int argc, char** argv) {
   fd = open(argv[1], O_RDWR | O_NOCTTY );
   if (fd <0) {perror(argv[2]); exit(-1); }
 
-  if(llOpen(fd) == -1){
-    printf("Failed to connect, timed out\n");
-    return -1;
-  }
+  llOpen(fd);
 
-  //cenas
+	unsigned char * buffer = malloc(sizeof(unsigned char));
+  int packetSize = llread(fd, buffer);
+	packetSize = destuffing(buffer, packetSize);
 
-  if(llClose(fd) == -1){
-    printf("Failed to disconnect, timed out\n");
-    return -1;
-  }
-
-  sleep(1);
+  llClose(fd);
 
   close(fd);
   return 0;
@@ -86,47 +64,37 @@ int llOpen(int fd) {
     exit(-1);
   }
 
-  signal(SIGALRM, alarm_handler);
-
   //Check conection
-  if (readControlMessage(fd, C_SET) == -1)
-    return -1;
-  else
-    writeControlMessage(fd, C_UA);
+  readControlMessage(fd, C_SET);
+
+  writeControlMessage(fd, C_UA);
 
   return 0;
 }
 
 int llClose(int fd) {
-  if (readControlMessage(fd, C_DISC) == -1)
-    return -1;
+  readControlMessage(fd, C_DISC);
 
   writeControlMessage(fd, C_DISC);
 
-  if (readControlMessage(fd, C_UA) == -1)
-    return -1;
+  readControlMessage(fd, C_UA);
 
   tcsetattr(fd, TCSANOW, &oldtio);
 
   return 0;
 }
 
-int readControlMessage(int fd, unsigned char control) {
-    char buf[1];
-    char message[5];
+void readControlMessage(int fd, unsigned char control) {
+    unsigned char buf[1];
+    unsigned char message[5];
     int res = 0;
     int retry = TRUE;
     int complete = FALSE;
     int state = 0;
     int i = 0;
 
-    reset_alarm_flag();
-		reset_alarm_counter();
-
-    alarm(TIMEOUT);
-
-    while (retry == TRUE && alarm_counter < MAX_ALARM_COUNT) {
-      while (complete == FALSE && !alarm_flag) {
+    while (retry == TRUE) {
+      while (complete == FALSE) {
         res = read(fd,buf,1);
         if(res > 0){
           switch(state){
@@ -160,14 +128,6 @@ int readControlMessage(int fd, unsigned char control) {
           }
         }
       }
-	
-			if (alarm_flag) {
-				alarm(TIMEOUT);
-				if (alarm_counter < MAX_ALARM_COUNT) {
-					reset_alarm_flag();
-				}
-				continue;
-			}
 
       if(message[0] == FLAG
           && message[1] == A
@@ -181,12 +141,6 @@ int readControlMessage(int fd, unsigned char control) {
         i = 0;
       }
     }
-
-    if(alarm_flag && alarm_counter == MAX_ALARM_COUNT) {
-      return -1;
-    }
-
-    return 0;
 }
 
 void writeControlMessage(int fd, unsigned char control) {
@@ -199,7 +153,95 @@ void writeControlMessage(int fd, unsigned char control) {
   write(fd, message, 5);
 }
 
-int llRead(int fd) {
-	return 0;
+int llread(int fd, unsigned char * buffer) {
+  int stop = false;
+  int state = 0;
+  int packet = -1;
+  unsigned char buf, c;
+	int packetSize = 0;
+
+  while(!stop){
+  	read(fd, buf, 1);
+	switch(state){
+		case 0: // start
+			if(buf == FLAG)
+				state++;
+			break;
+		case 1: // address
+			if(buf == A)
+				state++;
+			else
+				if(buf != FLAG)
+					state = 0;
+			break;
+		case 2: // control
+			if(buf == C_0)
+				packet = 0;
+			else
+				if(buf == C_1)
+					packet = 1;
+				else{
+					if(buf == FLAG)
+						state = 1;
+					else
+						state = 0;
+					break;
+				}
+			c = buf;
+			state++;
+			break;
+		case 3: // bcc1
+			if (buf == (A ^ c))
+				state++;
+			else
+				if(buf == FLAG)
+					state = 1;
+				else
+					state = 0;
+			break;
+		case 4: //data
+			if (buf == FLAG) {
+				//bcc2 = *(buffer + packetSize - 1);
+				//buffer = (unsigned char *) realloc(buffer, packetSize - 1);
+				stop = TRUE;
+			} else {
+				packetSize++;
+				buffer = (unsigned char *) realloc(buffer, packetSize);
+				*(buffer + packetSize - 1) = buf;
+				printf("contents in buffer: %s", buffer + packetSize - 1);
+			}
+		}		
+  }
+
+	return packetSize;	
+}
+
+int destuffing(unsigned char* buffer, int packetSize){
+	unsigned char buf, buf2;
+	unsigned char * buffer2 = (unsigned char *)malloc(packetSize);
+	int newPacketSize = packetSize;
+	int j = 0;
+	memcpy(buffer2, buffer, packetSize);
+
+	for(int i = 0; i < packetSize; i++){
+		buf = *(buffer2 + i);
+		if(buf == ESC){
+			buf2 = *(buffer2 + i + 1);
+			if(buf2 = ESC_FLAG){
+				*(buffer + j) = FLAG;
+			} else if(buf2 = ESC_ESC){
+				*(buffer + j) = ESC;
+			} else {
+				return -1;
+			}
+			newPacketsize--;
+			buffer = (unsigned char *) realloc(buffer, newPacketSize);
+			i++;
+		} else
+			*(buffer + j) = buf;
+		j++;
+	}
+
+	return newPacketSize;
 }
 

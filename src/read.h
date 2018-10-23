@@ -23,11 +23,15 @@ included by <termios.h> */
 #define C_SET           0x03
 #define C_UA            0x07
 #define A               0x03
-#define C_DISC		      0x0B
+#define C_DISC					0x0B
+#define C_0							0x00
+#define C_1 						0x40
+#define ESC							0x7D
+#define ESC_FLAG				0x5E
+#define ESC_ESC					0x5D
 
-//data link layer
 int llOpen(int fd);
 int llClose(int fd);
-int readControlMessage(int fd, unsigned char control);
+void readControlMessage(int fd, unsigned char control);
 void writeControlMessage(int fd, unsigned char control);
-int llRead(int fd);
+int llread(int fd, char *buffer);
