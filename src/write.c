@@ -2,6 +2,8 @@
 
 #include "write.h"
 
+int packetSign = 0;
+
 volatile int STOP=FALSE;
 
 int alarm_flag = FALSE;
@@ -91,6 +93,23 @@ int main(int argc, char** argv)
 		perror("Error with llopen\n");
         exit(1);
     }
+
+	//
+	//TESTING LLWRITE
+	//
+
+	unsigned char testPacket[5];
+	testPacket[0] = 't';
+	testPacket[1] = 'e';
+	testPacket[2] = 's';
+	testPacket[3] = 't';
+	testPacket[4] = '\0';
+
+	llwrite(fd, testPacket, 5);
+
+	//
+	//END TESTING LLWRITE
+	//
 
 	llclose(fd);
 
@@ -250,7 +269,7 @@ int llclose(int fd) {
 * @param size - size of the message sent
 * @returns the parity of the message in form of a unsigned char
 */
-unsigned char generateBCC2(unsigned char *message, unsigned int sizeOfMessage){
+unsigned char generateBCC2(unsigned char *message, int sizeOfMessage){
 
     unsigned char result = message[0];
 
@@ -265,32 +284,44 @@ unsigned char generateBCC2(unsigned char *message, unsigned int sizeOfMessage){
 /**
 * 
 */
-int llwrite(int fd, char * buffer, int length) {
+int llwrite(int fd, unsigned char * buffer, int length) {
 
     //bcc2
+		printf("Preparing BCC2\n");
     unsigned char BCC2 = generateBCC2(buffer,length);
+		printf("BCC2 generated: %s\n", &BCC2);
     int sizeBCC2 = 1;
-    unsigned char *stuffedBCC2 = (unsigned char *)malloc(sizeof(unsigned char));
-
-    //create packet header 
+    unsigned char *stuffedBCC2 = (unsigned char *) malloc(sizeof(unsigned char));
+		stuffedBCC2 = packetStuffing(&BCC2, sizeBCC2);
+		printf("BCC2 stuffed: %s\n", stuffedBCC2);
 
     //stuffing
 
-    //concatenate packet header and stuffed message
+		printf("Preparing for packet stuffing, current packet: %s\n", buffer);
+		buffer = packetStuffing(buffer, length);
+		printf("Packet stuffed: %s\n", buffer);
+
+    //concatenate packet header, stuffed message and packet trailer
+		printf("Preparing to concatenate header and trailer, current packet: %s\n", buffer);
+		preparePacket(buffer, *stuffedBCC2);
+		printf("Packet prepared, current packet: %s\n", buffer);
 
     //sending packages of the file at once
+		printf("Preparing to send packet\n");
+		write(fd, buffer, 255); //change this value later
+		printf("Packet sent\n");
 
     return 0;
 }
 
 unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
 
-    const size_t len1 = strlen(s1);
-    const size_t len2 = strlen(s2);
+    const size_t len1 = strlen((char *)s1);
+    const size_t len2 = strlen((char *)s2);
     char * result = malloc(len1 + len2 + 1);
     memcpy(result, s1, len1);
     memcpy(result + len1, s2, len2 + 1);
-    return result;
+    return (unsigned char *) result;
 }
 
 /**
@@ -299,7 +330,8 @@ unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
 *   @param len - length of the message to be stuffed
 *   @return the message but stuffed (with no FLAGS in it)
 */
-unsigned char *packetStuffing(unsigned char * message, int size) {
+unsigned char * packetStuffing(unsigned char * message, int size) {
+
     //Counter for the original message
     int i;
     //Counter for the new message
@@ -329,5 +361,21 @@ unsigned char *packetStuffing(unsigned char * message, int size) {
     }
 
 	return finalMessage;
+}
+
+void preparePacket(unsigned char * buf, unsigned char bcc2) {
+
+	unsigned char header[3];
+	header[0] = FLAG;
+	header[1] = A_WRITER;
+	header[2] = packetSign;
+
+	unsigned char trailer[1];
+	trailer[0] = FLAG;
+
+	buf = concat(header, buf);
+	buf = concat(buf, &bcc2);
+	buf = concat(buf, trailer);
+
 }
 

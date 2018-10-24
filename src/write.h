@@ -30,6 +30,8 @@
 #define STUFF_FLAG_CODE		0x5e
 #define STUFF_ESCAPE_CODE	0x5d
 
+#define A_WRITER					0x03
+
 void set_alarm();
 void remove_alarm();
 int llopen(int fd);
@@ -37,7 +39,9 @@ int llclose(int fd);
 int sendControlMessage(int fd, unsigned char control);
 void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
-int llwrite(int fd, char * buffer, int length);
+int llwrite(int fd, unsigned char * buffer, int length);
 unsigned char * concat(const unsigned char * s1, const unsigned char * s2);
 unsigned char * packetStuffing(unsigned char * buf, int len);
+unsigned char generateBCC2(unsigned char *message, int sizeOfMessage);
+void preparePacket(unsigned char * buf, unsigned char bcc2);
 
