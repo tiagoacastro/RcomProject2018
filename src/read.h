@@ -29,9 +29,16 @@ included by <termios.h> */
 #define ESC							0x7D
 #define ESC_FLAG				0x5E
 #define ESC_ESC					0x5D
+#define RR_C_0          0x05
+#define RR_C_1          0x85
+#define REJ_C_0         0x01
+#define REJ_C_1         0x81
 
 int llOpen(int fd);
 int llClose(int fd);
 void readControlMessage(int fd, unsigned char control);
 void writeControlMessage(int fd, unsigned char control);
 int llread(int fd, unsigned char *buffer);
+int destuffing(unsigned char* buffer, int packetSize);
+int checkBCC2(unsigned char* buffer, int packetSize);
+int readMessage(buffer);

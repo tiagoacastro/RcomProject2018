@@ -2,6 +2,8 @@
 #include "read.h"
 
 struct termios oldtio, newtio;
+int packet;
+int expected = 0;
 
 int main(int argc, char** argv) {
 
@@ -23,9 +25,8 @@ int main(int argc, char** argv) {
 
   llOpen(fd);
 
-	unsigned char * buffer = malloc(sizeof(unsigned char));
-  int packetSize = llread(fd, buffer);
-	packetSize = destuffing(buffer, packetSize);
+  unsigned char * start = malloc(sizeof(unsigned char));
+  int packetSize = readMessage(start);
 
   llClose(fd);
 
@@ -156,9 +157,10 @@ void writeControlMessage(int fd, unsigned char control) {
 int llread(int fd, unsigned char * buffer) {
   int stop = FALSE;
   int state = 0;
-  int packet = -1;
   unsigned char buf, c;
 	int packetSize = 0;
+
+  packet = -1;
 
   while(!stop){
   	read(fd, &buf, 1);
@@ -210,13 +212,13 @@ int llread(int fd, unsigned char * buffer) {
 				*(buffer + packetSize - 1) = buf;
 				printf("contents in buffer: %s", buffer + packetSize - 1);
 			}
-		}		
+		}
   }
 
-	return packetSize;	
+	return packetSize;
 }
 
-int destuffing(unsigned char* buffer, int packetSize){
+int destuffing(unsigned char* buffer, int packetSize) {
 	unsigned char buf, buf2;
 	unsigned char * buffer2 = (unsigned char *) malloc(packetSize * sizeof(unsigned char));
 	int newPacketSize = packetSize;
@@ -245,3 +247,43 @@ int destuffing(unsigned char* buffer, int packetSize){
 	return newPacketSize;
 }
 
+int checkBCC2(unsigned char* buffer, int packetSize){
+  unsigned char bcc2 = *(buffer + packetSize - 1);
+  unsigned char track = *buffer;
+
+  for(int i = 1; i < packetSize-1; i++){
+    track ^= *(buffer + i);
+	}
+
+  if(track == bcc2)
+    return 1;
+
+  return 0;
+}
+
+int readMessage(buffer){
+  int packetSize, res;
+  do {
+    packetSize = llread(fd, buffer);
+  	packetSize = destuffing(buffer, packetSize);
+    res = checkBCC2(buffer, packetSize);
+    if(res){
+      if(packet == 0)
+        sendControlMessage(fd, RR_C_1);
+      else
+        sendControlMessage(fd, RR_C_0);
+
+      if (packet == expected)
+        expected ^= 1;
+      else
+        res = 0;
+    } else {
+      if(packet == 0)
+        sendControlMessage(fd, REJ_C_1);
+      else
+        sendControlMessage(fd, REJ_C_0);
+    }
+  } while(!res)
+
+  return packetSize;
+}
