@@ -154,14 +154,14 @@ void writeControlMessage(int fd, unsigned char control) {
 }
 
 int llread(int fd, unsigned char * buffer) {
-  int stop = false;
+  int stop = FALSE;
   int state = 0;
   int packet = -1;
   unsigned char buf, c;
 	int packetSize = 0;
 
   while(!stop){
-  	read(fd, buf, 1);
+  	read(fd, &buf, 1);
 	switch(state){
 		case 0: // start
 			if(buf == FLAG)
@@ -218,7 +218,7 @@ int llread(int fd, unsigned char * buffer) {
 
 int destuffing(unsigned char* buffer, int packetSize){
 	unsigned char buf, buf2;
-	unsigned char * buffer2 = (unsigned char *)malloc(packetSize);
+	unsigned char * buffer2 = (unsigned char *) malloc(packetSize * sizeof(unsigned char));
 	int newPacketSize = packetSize;
 	int j = 0;
 	memcpy(buffer2, buffer, packetSize);
@@ -227,14 +227,14 @@ int destuffing(unsigned char* buffer, int packetSize){
 		buf = *(buffer2 + i);
 		if(buf == ESC){
 			buf2 = *(buffer2 + i + 1);
-			if(buf2 = ESC_FLAG){
+			if(buf2 == ESC_FLAG){
 				*(buffer + j) = FLAG;
-			} else if(buf2 = ESC_ESC){
+			} else if(buf2 == ESC_ESC){
 				*(buffer + j) = ESC;
 			} else {
 				return -1;
 			}
-			newPacketsize--;
+			newPacketSize--;
 			buffer = (unsigned char *) realloc(buffer, newPacketSize);
 			i++;
 		} else

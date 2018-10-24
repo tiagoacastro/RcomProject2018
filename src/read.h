@@ -34,4 +34,4 @@ int llOpen(int fd);
 int llClose(int fd);
 void readControlMessage(int fd, unsigned char control);
 void writeControlMessage(int fd, unsigned char control);
-int llread(int fd, char *buffer);
+int llread(int fd, unsigned char *buffer);
