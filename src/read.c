@@ -255,10 +255,13 @@ int checkBCC2(unsigned char* buffer, int packetSize){
     track ^= *(buffer + i);
 	}
 
-  if(track == bcc2)
-    return 1;
+  packetSize--;
+  buffer = (unsigned char *) realloc(buffer, packetSize);
 
-  return 0;
+  if(track == bcc2)
+    return packetSize;
+
+  return -1;
 }
 
 int readMessage(buffer){
@@ -266,8 +269,8 @@ int readMessage(buffer){
   do {
     packetSize = llread(fd, buffer);
   	packetSize = destuffing(buffer, packetSize);
-    res = checkBCC2(buffer, packetSize);
-    if(res){
+    packetSize = checkBCC2(buffer, packetSize);
+    if(packetSize != -1){
       if(packet == 0)
         sendControlMessage(fd, RR_C_1);
       else
@@ -276,14 +279,14 @@ int readMessage(buffer){
       if (packet == expected)
         expected ^= 1;
       else
-        res = 0;
+        packetSize = -1;
     } else {
       if(packet == 0)
         sendControlMessage(fd, REJ_C_1);
       else
         sendControlMessage(fd, REJ_C_0);
     }
-  } while(!res)
+  } while(packetSize == -1)
 
   return packetSize;
 }
