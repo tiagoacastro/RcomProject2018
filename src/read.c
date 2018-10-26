@@ -5,7 +5,7 @@ struct termios oldtio, newtio;
 int packet;
 int expected = 0;
 FileInfo info;
-unsigned char* changed;
+char* changed;
 
 int main(int argc, char** argv){
 
@@ -26,7 +26,7 @@ int main(int argc, char** argv){
   if (fd <0) {perror(argv[2]); exit(-1); }
   llOpen(fd);
 
-  unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
+  char* start = (char*)malloc(sizeof(char));
   if(start == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -37,7 +37,7 @@ int main(int argc, char** argv){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
   }
-  info.content = (unsigned char*)malloc(info.size * sizeof(unsigned char));
+  info.content = (char*)malloc(info.size * sizeof(char));
   if(info.content == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -45,7 +45,7 @@ int main(int argc, char** argv){
 
   readContent(start, startSize);
 
-  //criação do ficheiro
+  createFile();
 
   free(start);
   free(info.name);
@@ -106,9 +106,9 @@ int llClose(int fd){
   return 0;
 }
 
-void readControlMessage(int fd, unsigned char control){
-    unsigned char buf[1];
-    unsigned char message[5];
+void readControlMessage(int fd, char control){
+    char buf[1];
+    char message[5];
     int res = 0;
     int retry = TRUE;
     int complete = FALSE;
@@ -165,8 +165,8 @@ void readControlMessage(int fd, unsigned char control){
     }
 }
 
-void writeControlMessage(int fd, unsigned char control){
-  unsigned char message[5];
+void writeControlMessage(int fd, char control){
+  char message[5];
   message[0] = FLAG;
   message[1] = A;
   message[2] = control;
@@ -175,10 +175,10 @@ void writeControlMessage(int fd, unsigned char control){
   write(fd, message, 5);
 }
 
-int llread(int fd, unsigned char* buffer){
+int llread(int fd, char* buffer){
   int stop = FALSE;
   int state = 0;
-  unsigned char buf, c;
+  char buf, c;
 	unsigned int packetSize = 0;
   int res = 0;
 
@@ -229,7 +229,7 @@ int llread(int fd, unsigned char* buffer){
     				stop = TRUE;
     			} else {
     				packetSize++;
-    				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
+    				buffer = (char *) realloc(buffer, packetSize * sizeof(char));
             if(buffer == NULL){
               printf("Tried to realloc, out of memory\n");
               exit(-1);
@@ -244,9 +244,9 @@ int llread(int fd, unsigned char* buffer){
 	return packetSize;
 }
 
-int destuffing(unsigned char* buffer, unsigned int packetSize){
-	unsigned char buf, buf2;
-	unsigned char * buffer2 = (unsigned char*)malloc(packetSize * sizeof(unsigned char));
+int destuffing(char* buffer, unsigned int packetSize){
+	char buf, buf2;
+	char * buffer2 = (char*)malloc(packetSize * sizeof(char));
   if(buffer2 == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -268,7 +268,7 @@ int destuffing(unsigned char* buffer, unsigned int packetSize){
 				return -1;
 			}
 			newPacketSize--;
-			buffer = (unsigned char *) realloc(buffer, newPacketSize * sizeof(unsigned char));
+			buffer = (char *) realloc(buffer, newPacketSize * sizeof(char));
       if(buffer == NULL){
         printf("Tried to realloc, out of memory\n");
         exit(-1);
@@ -285,16 +285,16 @@ int destuffing(unsigned char* buffer, unsigned int packetSize){
 	return newPacketSize;
 }
 
-int checkBCC2(unsigned char* buffer, unsigned int packetSize){
-  unsigned char bcc2 = *(buffer + packetSize - 1);
-  unsigned char track = *buffer;
+int checkBCC2(char* buffer, unsigned int packetSize){
+  char bcc2 = *(buffer + packetSize - 1);
+  char track = *buffer;
 
   for(int i = 1; i < packetSize-1; i++){
     track ^= *(buffer + i);
 	}
 
   packetSize--;
-  buffer = (unsigned char*) realloc(buffer, packetSize * sizeof(unsigned char));
+  buffer = (char*) realloc(buffer, packetSize * sizeof(char));
   if(buffer == NULL){
     printf("Tried to realloc, out of memory\n");
     exit(-1);
@@ -308,7 +308,7 @@ int checkBCC2(unsigned char* buffer, unsigned int packetSize){
   return -1;
 }
 
-int readPacket(unsigned char* buffer){
+int readPacket(char* buffer){
   unsigned int packetSize;
 
   do {
@@ -339,7 +339,7 @@ int readPacket(unsigned char* buffer){
   return packetSize;
 }
 
-int getFileInfo(unsigned char* start){
+int getFileInfo(char* start){
   int type = *(start);
 
   if(type != START)
@@ -363,14 +363,14 @@ int getFileInfo(unsigned char* start){
 
   info.size = size;
 
-  unsigned char* next = start + 3 + octets;
+  char* next = start + 3 + octets;
   param = (int)*(next);
 
   if(param != NAME)
     return -1;
 
   octets = (int)*(next + 1);
-  unsigned char* name =  (unsigned char*)malloc(octets * sizeof(unsigned char));
+  char* name =  (char*)malloc(octets * sizeof(char));
   if(name == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -385,7 +385,7 @@ int getFileInfo(unsigned char* start){
   return 0;
 }
 
-int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize){
+int isEndPacket(char* start, int startSize, char* end, int endSize){
   int type = *(end);
   if(startSize != endSize || type != END)
     return FALSE;
@@ -398,9 +398,9 @@ int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int end
   return TRUE;
 }
 
-int removeHeader(unsigned char* packet, int size){
+int removeHeader(char* packet, int size){
   int newSize = size - 4;
-  unsigned char *newPacket = (unsigned char*)malloc(newSize * sizeof(unsigned char));
+  char *newPacket = (char*)malloc(newSize * sizeof(char));
   if(newPacket == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -417,13 +417,13 @@ int removeHeader(unsigned char* packet, int size){
   return newSize;
 }
 
-void readContent(unsigned char* start, unsigned int startSize){
-  unsigned char* packet;
+void readContent(char* start, unsigned int startSize){
+  char* packet;
   unsigned int packetSize;
   unsigned int index;
 
   while(TRUE){
-    packet = (unsigned char*)malloc(sizeof(unsigned char));
+    packet = (char*)malloc(sizeof(char));
     if(packet == NULL){
       printf("Tried to malloc, out of memory\n");
       exit(-1);
@@ -443,4 +443,11 @@ void readContent(unsigned char* start, unsigned int startSize){
 
     free(packet);
   }
+}
+
+void createFile(){
+  FILE* file = fopen((char*)info.name, "wb+");
+  fwrite((char*)info.content, sizeof(char), info.size, file);
+  printf("File created\n");
+  fclose(file);
 }

@@ -54,3 +54,4 @@ int getFileInfo(unsigned char* start);
 void readContent(unsigned char* start, unsigned int startSize);
 int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize);
 int removeHeader(unsigned char* packet, int size);
+void createFile();
