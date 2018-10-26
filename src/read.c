@@ -159,60 +159,62 @@ int llread(int fd, unsigned char * buffer) {
   int state = 0;
   unsigned char buf, c;
 	int packetSize = 0;
+  int res = 0;
 
   packet = -1;
 
   while(!stop){
-  	read(fd, &buf, 1);
-	switch(state){
-		case 0: // start
-			if(buf == FLAG)
-				state++;
-			break;
-		case 1: // address
-			if(buf == A)
-				state++;
-			else
-				if(buf != FLAG)
-					state = 0;
-			break;
-		case 2: // control
-			if(buf == C_0)
-				packet = 0;
-			else
-				if(buf == C_1)
-					packet = 1;
-				else{
-					if(buf == FLAG)
-						state = 1;
-					else
-						state = 0;
-					break;
-				}
-			c = buf;
-			state++;
-			break;
-		case 3: // bcc1
-			if (buf == (A ^ c))
-				state++;
-			else
-				if(buf == FLAG)
-					state = 1;
-				else
-					state = 0;
-			break;
-		case 4: //data
-			if (buf == FLAG) {
-				//bcc2 = *(buffer + packetSize - 1);
-				//buffer = (unsigned char *) realloc(buffer, packetSize - 1);
-				stop = TRUE;
-			} else {
-				packetSize++;
-				buffer = (unsigned char *) realloc(buffer, packetSize);
-				*(buffer + packetSize - 1) = buf;
-				printf("contents in buffer: %s", buffer + packetSize - 1);
-			}
-		}
+  	res = read(fd, &buf, 1);
+    if(res > 0)
+    	switch(state){
+    		case 0: // start
+    			if(buf == FLAG)
+    				state++;
+    			break;
+    		case 1: // address
+    			if(buf == A)
+    				state++;
+    			else
+    				if(buf != FLAG)
+    					state = 0;
+    			break;
+    		case 2: // control
+    			if(buf == C_0)
+    				packet = 0;
+    			else
+    				if(buf == C_1)
+    					packet = 1;
+    				else{
+    					if(buf == FLAG)
+    						state = 1;
+    					else
+    						state = 0;
+    					break;
+    				}
+    			c = buf;
+    			state++;
+    			break;
+    		case 3: // bcc1
+    			if (buf == (A ^ c))
+    				state++;
+    			else
+    				if(buf == FLAG)
+    					state = 1;
+    				else
+    					state = 0;
+    			break;
+    		case 4: //data
+    			if (buf == FLAG) {
+    				//bcc2 = *(buffer + packetSize - 1);
+    				//buffer = (unsigned char *) realloc(buffer, packetSize - 1);
+    				stop = TRUE;
+    			} else {
+    				packetSize++;
+    				buffer = (unsigned char *) realloc(buffer, packetSize);
+    				*(buffer + packetSize - 1) = buf;
+    				printf("contents in buffer: %s", buffer + packetSize - 1);
+    			}
+    		}
   }
 
 	return packetSize;
