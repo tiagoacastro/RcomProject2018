@@ -5,6 +5,7 @@ struct termios oldtio, newtio;
 int packet;
 int expected = 0;
 FileInfo info;
+unsigned char* changed;
 
 int main(int argc, char** argv){
 
@@ -227,6 +228,8 @@ int llread(int fd, unsigned char* buffer){
     		}
   }
 
+  changed = buffer;
+
 	return packetSize;
 }
 
@@ -257,6 +260,8 @@ int destuffing(unsigned char* buffer, unsigned int packetSize){
 		j++;
 	}
 
+  changed = buffer;
+
   free(buffer2);
 	return newPacketSize;
 }
@@ -275,6 +280,8 @@ int checkBCC2(unsigned char* buffer, unsigned int packetSize){
   if(track == bcc2)
     return packetSize;
 
+  changed = buffer;
+
   return -1;
 }
 
@@ -283,8 +290,11 @@ int readPacket(unsigned char* buffer){
 
   do {
     packetSize = llread(fd, buffer);
+    buffer = changed;
   	packetSize = destuffing(buffer, packetSize);
+    buffer = changed;
     packetSize = checkBCC2(buffer, packetSize);
+    buffer = changed;
     if(packetSize != -1){
       if(packet == 0)
         sendControlMessage(fd, RR_C_1);
