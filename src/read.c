@@ -28,6 +28,7 @@ int main(int argc, char** argv){
 
   unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
   unsigned int startSize = readPacket(start);
+  start = changed;
   if(getFileInfo(start) == -1){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
@@ -374,17 +375,17 @@ int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int end
 void readContent(unsigned char* start, unsigned int startSize){
   unsigned char* packet = (unsigned char*)malloc(sizeof(unsigned char));
   unsigned int packetSize;
+  unsigned int index;
 
   while(TRUE){
     packetSize = readPacket(packet);
+    packet = changed;
 
     if(isEndPacket(start, startSize, packet, packetSize)){
       break;
     }
     /*
-    int sizeWithoutHeader = 0;
-
-    packet = removeHeader(mensagemPronta, sizeMessage, &sizeWithoutHeader);
+    packetSize = removeHeader(packet, packetSize);
 
     memcpy(giant + index, mensagemPronta, sizeWithoutHeader);
     index += sizeWithoutHeader;
