@@ -1,5 +1,5 @@
 /*Non-Canonical Input Processing*/
-#include "read.h"
+#include "receiver.h"
 
 struct termios oldtio, newtio;
 int packet;

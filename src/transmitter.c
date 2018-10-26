@@ -1,6 +1,5 @@
 /*Non-Canonical Input Processing*/
-
-#include "write.h"
+#include "transmitter.h"
 
 int packetSign = 0;
 
@@ -10,7 +9,7 @@ int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
 
-void alarm_handler() { 
+void alarm_handler() {
 	alarm_flag = TRUE;
 	alarm_counter++;
 	//printf("alarm counter: %d\n", alarm_counter);
@@ -218,9 +217,9 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 	reset_alarm_flag();
 	reset_alarm_counter();
 	message_received = FALSE;
-	
+
 	while(alarm_counter < MAX_ALARM_COUNT && !message_received){
-		
+
 		sendControlMessage(fd, control_sent);
 		printf("sent control message, waiting response\n");
 		alarm(TIMEOUT);
@@ -233,7 +232,7 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 				else
 				{
 					printf("stopAndWait: Received answer: 0x%02x\n", *buf);
-				} 	
+				}
 				stateMachine(buf, &state, control_expecting);
 		}
 		reset_alarm_flag();
@@ -247,8 +246,8 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
     }
     else
         return 1;
-  
-	
+
+
 }
 
 
@@ -275,14 +274,14 @@ unsigned char generateBCC2(unsigned char *message, int sizeOfMessage){
 
     int i;
     for(i = 1; i < sizeOfMessage; i++){
-        result = result ^ message[i]; 
+        result = result ^ message[i];
     }
 
     return result;
 }
 
 /**
-* 
+*
 */
 int llwrite(int fd, unsigned char * buffer, int length) {
 
@@ -344,7 +343,7 @@ unsigned char * packetStuffing(unsigned char * message, int size) {
         if(message[i] == FLAG){
             finalMessage = (unsigned char *)realloc(finalMessage,++sizeFinalMessage);
             finalMessage[j] = ESCAPE_CODE;
-            finalMessage[j+1] = STUFF_FLAG_CODE;   
+            finalMessage[j+1] = STUFF_FLAG_CODE;
             j += 2;
         }
         else if(message[i] == ESCAPE_CODE){
@@ -378,4 +377,3 @@ void preparePacket(unsigned char * buf, unsigned char bcc2) {
 	buf = concat(buf, trailer);
 
 }
-

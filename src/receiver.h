@@ -38,20 +38,20 @@ included by <termios.h> */
 
 struct FileInfo{
   int size;
-  unsigned char* name;
-  unsigned char* content;
+  char* name;
+  char* content;
 };
 
 int llOpen(int fd);
 int llClose(int fd);
-void readControlMessage(int fd, unsigned char control);
-void writeControlMessage(int fd, unsigned char control);
-int llread(int fd, unsigned char* buffer);
-int destuffing(unsigned char* buffer, int packetSize);
-int checkBCC2(unsigned char* buffer, int packetSize);
-int readPacket(unsigned char* buffer);
-int getFileInfo(unsigned char* start);
-void readContent(unsigned char* start, unsigned int startSize);
-int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize);
-int removeHeader(unsigned char* packet, int size);
+void readControlMessage(int fd, char control);
+void writeControlMessage(int fd, char control);
+int llread(int fd, char* buffer);
+int destuffing(char* buffer, int packetSize);
+int checkBCC2(char* buffer, int packetSize);
+int readPacket(char* buffer);
+int getFileInfo(char* start);
+void readContent(char* start, unsigned int startSize);
+int isEndPacket(char* start, int startSize, char* end, int endSize);
+int removeHeader(char* packet, int size);
 void createFile();
