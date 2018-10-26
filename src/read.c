@@ -31,9 +31,15 @@ int main(int argc, char** argv){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
   }
+  unsigned char* file = (unsigned char*)malloc(info.size * sizeof(unsigned char));
+
+  // read das tramas de informação a espera da trama de end
+
+  //criação do ficheiro
 
   free(start);
   free(info.name);
+  free(file);
   llClose(fd);
   close(fd);
   return 0;
