@@ -37,6 +37,7 @@ included by <termios.h> */
 struct FileInfo{
   int  size;
   unsigned char*  name;
+  unsigned char*  content;
 };
 
 int llOpen(int fd);

@@ -31,7 +31,7 @@ int main(int argc, char** argv){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
   }
-  unsigned char* file = (unsigned char*)malloc(info.size * sizeof(unsigned char));
+  info.content = (unsigned char*)malloc(info.size * sizeof(unsigned char));
 
   // read das tramas de informação a espera da trama de end
 
@@ -39,7 +39,7 @@ int main(int argc, char** argv){
 
   free(start);
   free(info.name);
-  free(file);
+  free(info.content);
   llClose(fd);
   close(fd);
   return 0;
@@ -308,6 +308,11 @@ int readMessage(unsigned char* buffer){
 }
 
 int getFileInfo(unsigned char* start){
+  int type = (int)*(start);
+
+  if(type != 2)
+    return -1;
+
   int param = (int)*(start + 1);
   int octets = (int)*(start + 2);
   int octetVal;
