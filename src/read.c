@@ -26,14 +26,14 @@ int main(int argc, char** argv){
   llOpen(fd);
 
   unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
-  int packetSize = readMessage(start);
+  unsigned int startSize = readPacket(start);
   if(getFileInfo(start) == -1){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
   }
   info.content = (unsigned char*)malloc(info.size * sizeof(unsigned char));
 
-  // read das tramas de informação a espera da trama de end
+  readContent(start, startSize);
 
   //criação do ficheiro
 
@@ -169,7 +169,7 @@ int llread(int fd, unsigned char* buffer){
   int stop = FALSE;
   int state = 0;
   unsigned char buf, c;
-	int packetSize = 0;
+	unsigned int packetSize = 0;
   int res = 0;
 
   packet = -1;
@@ -223,7 +223,6 @@ int llread(int fd, unsigned char* buffer){
     				packetSize++;
     				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
     				*(buffer + packetSize - 1) = buf;
-    				printf("contents in buffer: %s", buffer + packetSize - 1);
     			}
     		}
   }
@@ -231,10 +230,10 @@ int llread(int fd, unsigned char* buffer){
 	return packetSize;
 }
 
-int destuffing(unsigned char* buffer, int packetSize){
+int destuffing(unsigned char* buffer, unsigned int packetSize){
 	unsigned char buf, buf2;
 	unsigned char * buffer2 = (unsigned char*)malloc(packetSize * sizeof(unsigned char));
-	int newPacketSize = packetSize;
+	unsigned int newPacketSize = packetSize;
 	int j = 0;
 
 	memcpy(buffer2, buffer, packetSize);
@@ -262,7 +261,7 @@ int destuffing(unsigned char* buffer, int packetSize){
 	return newPacketSize;
 }
 
-int checkBCC2(unsigned char* buffer, int packetSize){
+int checkBCC2(unsigned char* buffer, unsigned int packetSize){
   unsigned char bcc2 = *(buffer + packetSize - 1);
   unsigned char track = *buffer;
 
@@ -279,8 +278,8 @@ int checkBCC2(unsigned char* buffer, int packetSize){
   return -1;
 }
 
-int readMessage(unsigned char* buffer){
-  int packetSize;
+int readPacket(unsigned char* buffer){
+  unsigned int packetSize;
 
   do {
     packetSize = llread(fd, buffer);
@@ -308,21 +307,21 @@ int readMessage(unsigned char* buffer){
 }
 
 int getFileInfo(unsigned char* start){
-  int type = (int)*(start);
+  int type = *(start);
 
-  if(type != 2)
+  if(type != START)
     return -1;
 
   int param = (int)*(start + 1);
   int octets = (int)*(start + 2);
-  int octetVal;
-  int size = 0;
+  unsigned int octetVal;
+  unsigned int size = 0;
 
-  if(param != 0)
+  if(param != SIZE)
     return -1;
 
-  for (int i = 0; i < octets; i++) {
-    octetVal = (int)*(start + 3 + i);
+  for(int i = 0; i < octets; i++) {
+    octetVal = (unsigned int)*(start + 3 + i);
     for (int j = 0; j < (octets - i - 1); j++) {
       octetVal *= 256;
     }
@@ -334,17 +333,53 @@ int getFileInfo(unsigned char* start){
   unsigned char* next = start + 3 + octets;
   param = (int)*(next);
 
-  if(param != 1)
+  if(param != NAME)
     return -1;
 
   octets = (int)*(next + 1);
   unsigned char* name =  (unsigned char*)malloc(octets * sizeof(unsigned char));
 
-  for (int i = 0; i < octets; i++) {
+  for(int i = 0; i < octets; i++) {
     *(name + i) = *(next + 2 + i);
   }
 
   info.name = name;
 
   return 0;
+}
+
+int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize){
+  int type = *(end);
+  if(startSize != endSize || type != END)
+    return FALSE;
+
+  for(int i = 1; i < startSize; i++){
+    if (*(start + i) != *(end + i))
+      return FALSE;
+  }
+
+  return TRUE;
+}
+
+void readContent(unsigned char* start, unsigned int startSize){
+  unsigned char* packet = (unsigned char*)malloc(sizeof(unsigned char));
+  unsigned int packetSize;
+
+  while(TRUE){
+    packetSize = readPacket(packet);
+
+    if(isEndPacket(start, startSize, packet, packetSize)){
+      break;
+    }
+    /*
+    int sizeWithoutHeader = 0;
+
+    packet = removeHeader(mensagemPronta, sizeMessage, &sizeWithoutHeader);
+
+    memcpy(giant + index, mensagemPronta, sizeWithoutHeader);
+    index += sizeWithoutHeader;
+    */
+  }
+
+  free(packet);
 }

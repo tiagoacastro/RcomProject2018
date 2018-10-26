@@ -16,9 +16,6 @@ included by <termios.h> */
 #define FALSE           0
 #define TRUE            1
 
-#define MAX_ALARM_COUNT 3
-#define TIMEOUT         5
-
 #define FLAG            0x7E
 #define C_SET           0x03
 #define C_UA            0x07
@@ -33,6 +30,11 @@ included by <termios.h> */
 #define RR_C_1          0x85
 #define REJ_C_0         0x01
 #define REJ_C_1         0x81
+#define DATA   	        0x01
+#define START   	      0x02
+#define END   	        0x03
+#define SIZE   	        0x00
+#define NAME   	        0x01
 
 struct FileInfo{
   int  size;
@@ -47,5 +49,7 @@ void writeControlMessage(int fd, unsigned char control);
 int llread(int fd, unsigned char* buffer);
 int destuffing(unsigned char* buffer, int packetSize);
 int checkBCC2(unsigned char* buffer, int packetSize);
-int readMessage(unsigned char* buffer);
+int readPacket(unsigned char* buffer);
 int getFileInfo(unsigned char* start);
+void readContent(unsigned char* start, unsigned int startSize);
+int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize);
