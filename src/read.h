@@ -37,9 +37,9 @@ included by <termios.h> */
 #define NAME   	        0x01
 
 struct FileInfo{
-  int  size;
-  unsigned char*  name;
-  unsigned char*  content;
+  int size;
+  unsigned char* name;
+  unsigned char* content;
 };
 
 int llOpen(int fd);
@@ -53,3 +53,4 @@ int readPacket(unsigned char* buffer);
 int getFileInfo(unsigned char* start);
 void readContent(unsigned char* start, unsigned int startSize);
 int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int endSize);
+int removeHeader(unsigned char* packet, int size);

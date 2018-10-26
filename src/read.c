@@ -398,8 +398,7 @@ int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int end
   return TRUE;
 }
 
-int removeHeader(unsigned char* packet, int size)
-{
+int removeHeader(unsigned char* packet, int size){
   int newSize = size - 4;
   unsigned char *newPacket = (unsigned char*)malloc(newSize * sizeof(unsigned char));
   if(newPacket == NULL){
@@ -419,15 +418,16 @@ int removeHeader(unsigned char* packet, int size)
 }
 
 void readContent(unsigned char* start, unsigned int startSize){
-  unsigned char* packet = (unsigned char*)malloc(sizeof(unsigned char));
-  if(packet == NULL){
-    printf("Tried to malloc, out of memory\n");
-    exit(-1);
-  }
+  unsigned char* packet;
   unsigned int packetSize;
   unsigned int index;
 
   while(TRUE){
+    packet = (unsigned char*)malloc(sizeof(unsigned char));
+    if(packet == NULL){
+      printf("Tried to malloc, out of memory\n");
+      exit(-1);
+    }
     packetSize = readPacket(packet);
     packet = changed;
 
@@ -437,10 +437,10 @@ void readContent(unsigned char* start, unsigned int startSize){
 
     packetSize = removeHeader(packet, packetSize);
     packet = changed;
-    /*
-    memcpy(giant + index, mensagemPronta, sizeWithoutHeader);
-    index += sizeWithoutHeader;*/
-  }
 
-  free(packet);
+    memcpy(info.content + index, packet, packetSize);
+    index += packetSize;
+
+    free(packet);
+  }
 }
