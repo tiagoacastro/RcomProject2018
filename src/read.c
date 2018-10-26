@@ -4,8 +4,9 @@
 struct termios oldtio, newtio;
 int packet;
 int expected = 0;
+FileInfo info;
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv){
 
   int fd;
 
@@ -22,19 +23,23 @@ int main(int argc, char** argv) {
 
   fd = open(argv[1], O_RDWR | O_NOCTTY );
   if (fd <0) {perror(argv[2]); exit(-1); }
-
   llOpen(fd);
 
-  unsigned char * start = malloc(sizeof(unsigned char));
+  unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
   int packetSize = readMessage(start);
+  if(getFileInfo(start) == -1){
+    printf("File Size and File Name not in the correct order, first size, then name\n");
+    return -1;
+  }
 
+  free(start);
+  free(info.name);
   llClose(fd);
-
   close(fd);
   return 0;
 }
 
-int llOpen(int fd) {
+int llOpen(int fd){
   if (tcgetattr(fd, &oldtio) == -1) { /* save current port settings */
     perror("tcgetattr");
     exit(-1);
@@ -73,7 +78,7 @@ int llOpen(int fd) {
   return 0;
 }
 
-int llClose(int fd) {
+int llClose(int fd){
   readControlMessage(fd, C_DISC);
 
   writeControlMessage(fd, C_DISC);
@@ -85,7 +90,7 @@ int llClose(int fd) {
   return 0;
 }
 
-void readControlMessage(int fd, unsigned char control) {
+void readControlMessage(int fd, unsigned char control){
     unsigned char buf[1];
     unsigned char message[5];
     int res = 0;
@@ -144,7 +149,7 @@ void readControlMessage(int fd, unsigned char control) {
     }
 }
 
-void writeControlMessage(int fd, unsigned char control) {
+void writeControlMessage(int fd, unsigned char control){
   unsigned char message[5];
   message[0] = FLAG;
   message[1] = A;
@@ -154,7 +159,7 @@ void writeControlMessage(int fd, unsigned char control) {
   write(fd, message, 5);
 }
 
-int llread(int fd, unsigned char * buffer) {
+int llread(int fd, unsigned char* buffer){
   int stop = FALSE;
   int state = 0;
   unsigned char buf, c;
@@ -210,7 +215,7 @@ int llread(int fd, unsigned char * buffer) {
     				stop = TRUE;
     			} else {
     				packetSize++;
-    				buffer = (unsigned char *) realloc(buffer, packetSize);
+    				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
     				*(buffer + packetSize - 1) = buf;
     				printf("contents in buffer: %s", buffer + packetSize - 1);
     			}
@@ -220,11 +225,12 @@ int llread(int fd, unsigned char * buffer) {
 	return packetSize;
 }
 
-int destuffing(unsigned char* buffer, int packetSize) {
+int destuffing(unsigned char* buffer, int packetSize){
 	unsigned char buf, buf2;
-	unsigned char * buffer2 = (unsigned char *) malloc(packetSize * sizeof(unsigned char));
+	unsigned char * buffer2 = (unsigned char*)malloc(packetSize * sizeof(unsigned char));
 	int newPacketSize = packetSize;
 	int j = 0;
+
 	memcpy(buffer2, buffer, packetSize);
 
 	for(int i = 0; i < packetSize; i++){
@@ -239,13 +245,14 @@ int destuffing(unsigned char* buffer, int packetSize) {
 				return -1;
 			}
 			newPacketSize--;
-			buffer = (unsigned char *) realloc(buffer, newPacketSize);
+			buffer = (unsigned char *) realloc(buffer, newPacketSize * sizeof(unsigned char));
 			i++;
 		} else
 			*(buffer + j) = buf;
 		j++;
 	}
 
+  free(buffer2);
 	return newPacketSize;
 }
 
@@ -258,7 +265,7 @@ int checkBCC2(unsigned char* buffer, int packetSize){
 	}
 
   packetSize--;
-  buffer = (unsigned char *) realloc(buffer, packetSize);
+  buffer = (unsigned char*) realloc(buffer, packetSize * sizeof(unsigned char));
 
   if(track == bcc2)
     return packetSize;
@@ -266,8 +273,9 @@ int checkBCC2(unsigned char* buffer, int packetSize){
   return -1;
 }
 
-int readMessage(buffer){
-  int packetSize, res;
+int readMessage(unsigned char* buffer){
+  int packetSize;
+
   do {
     packetSize = llread(fd, buffer);
   	packetSize = destuffing(buffer, packetSize);
@@ -291,4 +299,41 @@ int readMessage(buffer){
   } while(packetSize == -1)
 
   return packetSize;
+}
+
+int getFileInfo(unsigned char* start){
+  int param = (int)*(start + 1);
+  int octets = (int)*(start + 2);
+  int octetVal;
+  int size = 0;
+
+  if(param != 0)
+    return -1;
+
+  for (int i = 0; i < octets; i++) {
+    octetVal = (int)*(start + 3 + i);
+    for (int j = 0; j < (octets - i - 1); j++) {
+      octetVal *= 256;
+    }
+    size += octetVal;
+  }
+
+  info.size = size;
+
+  unsigned char* next = start + 3 + octets;
+  param = (int)*(next);
+
+  if(param != 1)
+    return -1;
+
+  octets = (int)*(next + 1);
+  unsigned char* name =  (unsigned char*)malloc(octets * sizeof(unsigned char));
+
+  for (int i = 0; i < octets; i++) {
+    *(name + i) = *(next + 2 + i);
+  }
+
+  info.name = name;
+
+  return 0;
 }

@@ -34,11 +34,17 @@ included by <termios.h> */
 #define REJ_C_0         0x01
 #define REJ_C_1         0x81
 
+struct FileInfo{
+  int  size;
+  unsigned char*  name;
+};
+
 int llOpen(int fd);
 int llClose(int fd);
 void readControlMessage(int fd, unsigned char control);
 void writeControlMessage(int fd, unsigned char control);
-int llread(int fd, unsigned char *buffer);
+int llread(int fd, unsigned char* buffer);
 int destuffing(unsigned char* buffer, int packetSize);
 int checkBCC2(unsigned char* buffer, int packetSize);
-int readMessage(buffer);
+int readMessage(unsigned char* buffer);
+int getFileInfo(unsigned char* start);
