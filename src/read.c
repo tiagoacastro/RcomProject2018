@@ -27,6 +27,10 @@ int main(int argc, char** argv){
   llOpen(fd);
 
   unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
+  if(start == NULL){
+    printf("Tried to malloc, out of memory\n");
+    exit(-1);
+  }
   unsigned int startSize = readPacket(start);
   start = changed;
   if(getFileInfo(start) == -1){
@@ -34,6 +38,10 @@ int main(int argc, char** argv){
     return -1;
   }
   info.content = (unsigned char*)malloc(info.size * sizeof(unsigned char));
+  if(info.content == NULL){
+    printf("Tried to malloc, out of memory\n");
+    exit(-1);
+  }
 
   readContent(start, startSize);
 
@@ -218,12 +226,14 @@ int llread(int fd, unsigned char* buffer){
     			break;
     		case 4: //data
     			if (buf == FLAG) {
-    				//bcc2 = *(buffer + packetSize - 1);
-    				//buffer = (unsigned char *) realloc(buffer, packetSize - 1);
     				stop = TRUE;
     			} else {
     				packetSize++;
     				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
+            if(buffer == NULL){
+              printf("Tried to realloc, out of memory\n");
+              exit(-1);
+            }
     				*(buffer + packetSize - 1) = buf;
     			}
     		}
@@ -237,6 +247,10 @@ int llread(int fd, unsigned char* buffer){
 int destuffing(unsigned char* buffer, unsigned int packetSize){
 	unsigned char buf, buf2;
 	unsigned char * buffer2 = (unsigned char*)malloc(packetSize * sizeof(unsigned char));
+  if(buffer2 == NULL){
+    printf("Tried to malloc, out of memory\n");
+    exit(-1);
+  }
 	unsigned int newPacketSize = packetSize;
 	int j = 0;
 
@@ -255,6 +269,10 @@ int destuffing(unsigned char* buffer, unsigned int packetSize){
 			}
 			newPacketSize--;
 			buffer = (unsigned char *) realloc(buffer, newPacketSize * sizeof(unsigned char));
+      if(buffer == NULL){
+        printf("Tried to realloc, out of memory\n");
+        exit(-1);
+      }
 			i++;
 		} else
 			*(buffer + j) = buf;
@@ -277,6 +295,10 @@ int checkBCC2(unsigned char* buffer, unsigned int packetSize){
 
   packetSize--;
   buffer = (unsigned char*) realloc(buffer, packetSize * sizeof(unsigned char));
+  if(buffer == NULL){
+    printf("Tried to realloc, out of memory\n");
+    exit(-1);
+  }
 
   if(track == bcc2)
     return packetSize;
@@ -349,6 +371,10 @@ int getFileInfo(unsigned char* start){
 
   octets = (int)*(next + 1);
   unsigned char* name =  (unsigned char*)malloc(octets * sizeof(unsigned char));
+  if(name == NULL){
+    printf("Tried to malloc, out of memory\n");
+    exit(-1);
+  }
 
   for(int i = 0; i < octets; i++) {
     *(name + i) = *(next + 2 + i);
@@ -374,6 +400,10 @@ int isEndPacket(unsigned char* start, int startSize, unsigned char* end, int end
 
 void readContent(unsigned char* start, unsigned int startSize){
   unsigned char* packet = (unsigned char*)malloc(sizeof(unsigned char));
+  if(packet == NULL){
+    printf("Tried to malloc, out of memory\n");
+    exit(-1);
+  }
   unsigned int packetSize;
   unsigned int index;
 
