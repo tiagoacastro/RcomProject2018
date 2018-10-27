@@ -4,7 +4,7 @@
 struct termios oldtio, newtio;
 int packet;
 int expected = 0;
-FileInfo info;
+struct FileInfo info;
 char* changed;
 
 int main(int argc, char** argv){
@@ -31,7 +31,7 @@ int main(int argc, char** argv){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
   }
-  unsigned int startSize = readPacket(start);
+  unsigned int startSize = readPacket(fd, start);
   start = changed;
   if(getFileInfo(start) == -1){
     printf("File Size and File Name not in the correct order, first size, then name\n");
@@ -43,7 +43,7 @@ int main(int argc, char** argv){
     exit(-1);
   }
 
-  readContent(start, startSize);
+  readContent(fd, start, startSize);
 
   createFile();
 
@@ -308,7 +308,7 @@ int checkBCC2(char* buffer, unsigned int packetSize){
   return -1;
 }
 
-int readPacket(char* buffer){
+int readPacket(int fd, char* buffer){
   unsigned int packetSize;
 
   do {
@@ -320,9 +320,9 @@ int readPacket(char* buffer){
     buffer = changed;
     if(packetSize != -1){
       if(packet == 0)
-        sendControlMessage(fd, RR_C_1);
+        writeControlMessage(fd, RR_C_1);
       else
-        sendControlMessage(fd, RR_C_0);
+        writeControlMessage(fd, RR_C_0);
 
       if (packet == expected)
         expected ^= 1;
@@ -330,11 +330,11 @@ int readPacket(char* buffer){
         packetSize = -1;
     } else {
       if(packet == 0)
-        sendControlMessage(fd, REJ_C_1);
+        writeControlMessage(fd, REJ_C_1);
       else
-        sendControlMessage(fd, REJ_C_0);
+        writeControlMessage(fd, REJ_C_0);
     }
-  } while(packetSize == -1)
+  } while(packetSize == -1);
 
   return packetSize;
 }
@@ -408,7 +408,7 @@ int removeHeader(char* packet, int size){
 
   for (int i = 0; i < size; i++)
   {
-    *(newPacket + i) = *(Packet + i + 4);
+    *(newPacket + i) = *(packet + i + 4);
   }
 
   changed = newPacket;
@@ -417,7 +417,7 @@ int removeHeader(char* packet, int size){
   return newSize;
 }
 
-void readContent(char* start, unsigned int startSize){
+void readContent(int fd, char* start, unsigned int startSize){
   char* packet;
   unsigned int packetSize;
   unsigned int index;
@@ -428,7 +428,7 @@ void readContent(char* start, unsigned int startSize){
       printf("Tried to malloc, out of memory\n");
       exit(-1);
     }
-    packetSize = readPacket(packet);
+    packetSize = readPacket(fd, packet);
     packet = changed;
 
     if(isEndPacket(start, startSize, packet, packetSize)){
