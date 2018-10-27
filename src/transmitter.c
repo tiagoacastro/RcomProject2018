@@ -43,85 +43,88 @@ int main(int argc, char** argv)
   */
 
 
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
+  fd = open(argv[1], O_RDWR | O_NOCTTY );
 	if (fd <0) {perror(argv[1]); exit(-1); }
 
 	printf("Serial port open\n");
 
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-      perror("tcgetattr");
-      exit(-1);
-    }
+	if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
+    perror("tcgetattr");
+    exit(-1);
+  }
 
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
+  bzero(&newtio, sizeof(newtio));
+  newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+  newtio.c_iflag = IGNPAR;
+  newtio.c_oflag = 0;
 
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
+  /* set input mode (non-canonical, no echo,...) */
 
-    newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
+  newtio.c_lflag = 0;
 
-
+  newtio.c_cc[VTIME]    = 1;   /* inter-character timer unused */
+  newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
   /*
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
     leitura do(s) pr�ximo(s) caracter(es)
   */
 
+  tcflush(fd, TCIOFLUSH);
+
+  if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
+    perror("tcsetattr");
+    exit(-1);
+  }
+
+  printf("New termios structure set\n");
 
 
-    tcflush(fd, TCIOFLUSH);
+  //Set the alarm
 
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+  signal(SIGALRM,alarm_handler);
 
-    printf("New termios structure set\n");
-
-
-    //Set the alarm
-    signal(SIGALRM,alarm_handler);
-
+	//
+	//LLOPEN
+	//
 
 	int error = llopen(fd);
 	if(error != 0){
 		perror("Error with llopen\n");
         exit(1);
-    }
+  }
 
 	//
-	//TESTING LLWRITE
+	//LLWRITE
 	//
 
-	unsigned char testPacket[5];
+	unsigned char testPacket[6];
 	testPacket[0] = 't';
 	testPacket[1] = 'e';
-	testPacket[2] = 's';
-	testPacket[3] = 't';
-	testPacket[4] = '\0';
+	testPacket[2] = 0x7e;
+	testPacket[3] = 's';
+	testPacket[4] = 't';
+	testPacket[5] = '\0';
 
-	llwrite(fd, testPacket, 5);
+	llwrite(fd, testPacket, 6);
 
 	//
-	//END TESTING LLWRITE
+	//LLCLOSE
 	//
 
 	llclose(fd);
 
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+  if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+    perror("tcsetattr");
+    exit(-1);
+  }
 
-    close(fd);
-    return 0;
+  close(fd);
+  return 0;
 }
 
-int sendControlMessage(int fd, unsigned char control){
+int sendControlMessage(int fd, unsigned char control) {
+
 	int res;
 	unsigned char message[5];
 
@@ -133,17 +136,16 @@ int sendControlMessage(int fd, unsigned char control){
 
 	//printf("Antes de enviar a mensagem\n");
 
-    res = write(fd, message, 5);
-    printf("Message sent: 0x%02x\n", message[2]);
+  res = write(fd, message, 5);
 	if(res <= 0)
-    {
-        return FALSE;
-    }
-    else
-    {
-    	printf("Control message sent\n");
-        return TRUE;
-    }
+  {
+      return FALSE;
+  }
+  else
+  {
+  	printf("Control message sent: 0x%02x\n", message[2]);
+      return TRUE;
+  }
 }
 
 /**
@@ -151,64 +153,65 @@ int sendControlMessage(int fd, unsigned char control){
  * @param message - Mensagme para ser interpretada
  * @param state - Estado/posiçao na interpretaçao da trama
  */
+
 void stateMachine(unsigned char *message, int *state, unsigned char control){
-    switch(*state){
+  switch(*state){
 
-        case 0:                             /* Esta a espera do inicio da trama (0x7E) */
-            if(*message == FLAG){
-                *state = 1;
-            }
-            break;
+    case 0:                             /* Esta a espera do inicio da trama (0x7E) */
+        if(*message == FLAG){
+            *state = 1;
+        }
+        break;
 
-        case 1:
-            if(*message == ADDRESS){            /* Está à espera do A */
-                *state = 2;
-            }
-            else if(*message == FLAG){    /* Se tiver um 0x7E no meio da trama */
-                *state = 1;
-            }
-            else{                               /* Houve um erro e Adress está incorreto */
-                *state = 0;
-            }
-            break;
+    case 1:
+        if(*message == ADDRESS){            /* Está à espera do A */
+            *state = 2;
+        }
+        else if(*message == FLAG){    /* Se tiver um 0x7E no meio da trama */
+            *state = 1;
+        }
+        else{                               /* Houve um erro e Adress está incorreto */
+            *state = 0;
+        }
+        break;
 
-        case 2:
-            if(*message == control){         /* Recebe o valor de Controlo */
-                *state = 3;
-            }
-            else if(*message == FLAG){   /* Se tiver um 0x7E no meio da trama */
-                *state = 1;
-            }
-            else{                               /* Houve um erro e Controlo não está correto */
-                *state = 0;
-            }
-            break;
+    case 2:
+        if(*message == control){         /* Recebe o valor de Controlo */
+            *state = 3;
+        }
+        else if(*message == FLAG){   /* Se tiver um 0x7E no meio da trama */
+            *state = 1;
+        }
+        else{                               /* Houve um erro e Controlo não está correto */
+            *state = 0;
+        }
+        break;
 
-        case 3:
-            if(*message == (control ^ ADDRESS)){             /* BCC lido com sucesso */
-                *state = 4;
-            }
-            else{                               /* Erro com BCC */
-                *state = 0;
-            }
-            break;
+    case 3:
+        if(*message == (control ^ ADDRESS)){             /* BCC lido com sucesso */
+            *state = 4;
+        }
+        else{                               /* Erro com BCC */
+            *state = 0;
+        }
+        break;
 
-        case 4:
-            if(*message == FLAG){           /* Recebe o ultimo 7E */
-                message_received = TRUE;
-                alarm(0);
-                printf("Recebeu 0x%02x\n", control);
-            }
-            else{                               /* Erro no 7E */
-                *state = 0;
-            }
-            break;
-    }
+    case 4:
+        if(*message == FLAG){           /* Recebe o ultimo 7E */
+            message_received = TRUE;
+            alarm(0);
+            printf("Received 0x%02x\n", control);
+        }
+        else{                               /* Erro no 7E */
+            *state = 0;
+        }
+        break;
+  }
 }
 
 int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control_expecting) {
 
-	printf("entered stop and wait\n");
+	//printf("entered stop and wait\n");
 
 	int res = 0;
 	unsigned char buf[1];
@@ -221,33 +224,32 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 	while(alarm_counter < MAX_ALARM_COUNT && !message_received){
 
 		sendControlMessage(fd, control_sent);
-		printf("sent control message, waiting response\n");
+		//printf("sent control message, waiting response\n");
 		alarm(TIMEOUT);
 		state = 0;
 		while(!alarm_flag && !message_received) {
-				res = read(fd, buf, 1);
-				if(res <= 0){
-					//perror("stopAndWait: read nothing\n");
-				}
-				else
-				{
-					printf("stopAndWait: Received answer: 0x%02x\n", *buf);
-				}
-				stateMachine(buf, &state, control_expecting);
+			res = read(fd, buf, 1);
+			if(res <= 0){
+				perror("stopAndWait: read nothing\n");
+			}
+			else
+			{
+				printf("stopAndWait: Received answer: 0x%02x\n", *buf);
+			}
+			stateMachine(buf, &state, control_expecting);
 		}
+
 		reset_alarm_flag();
 
-        printf("Alarm counter %d\n", alarm_counter);
+    //printf("Alarm counter %d\n", alarm_counter);
 
 	};
 
-    if(alarm_counter < MAX_ALARM_COUNT){
-        return 0;
-    }
-    else
-        return 1;
-
-
+  if(alarm_counter < MAX_ALARM_COUNT){
+      return 0;
+  }
+  else
+      return 1;
 }
 
 
@@ -258,8 +260,7 @@ int llopen(int fd){
 int llclose(int fd) {
 	stopAndWaitControl(fd, CONTROL_DISC,CONTROL_DISC);
 	sendControlMessage(fd, CONTROL_UA);
-
-    return 0;
+  return 0; //shouldn't just be returning 0
 }
 
 /**
@@ -268,16 +269,17 @@ int llclose(int fd) {
 * @param size - size of the message sent
 * @returns the parity of the message in form of a unsigned char
 */
+
 unsigned char generateBCC2(unsigned char *message, int sizeOfMessage){
 
-    unsigned char result = message[0];
+  unsigned char result = message[0];
 
-    int i;
-    for(i = 1; i < sizeOfMessage; i++){
-        result = result ^ message[i];
-    }
+  int i;
+  for(i = 1; i < sizeOfMessage; i++){
+      result = result ^ message[i];
+  }
 
-    return result;
+  return result;
 }
 
 /**
@@ -331,33 +333,47 @@ unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
 */
 unsigned char * packetStuffing(unsigned char * message, int size) {
 
-    //Counter for the original message
-    int i;
-    //Counter for the new message
-    int j;
-    int sizeFinalMessage = 1;
-    unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char));
+	printf("Started packet stuffing\n");
 
-    //Loop through all the old message and generate the new one
-    for(i = 0; i < size ; i++){
-        if(message[i] == FLAG){
-            finalMessage = (unsigned char *)realloc(finalMessage,++sizeFinalMessage);
-            finalMessage[j] = ESCAPE_CODE;
-            finalMessage[j+1] = STUFF_FLAG_CODE;
-            j += 2;
-        }
-        else if(message[i] == ESCAPE_CODE){
-            finalMessage = (unsigned char *)realloc(finalMessage,++sizeFinalMessage);
-            finalMessage[j] = ESCAPE_CODE;
-            finalMessage[j+1] = STUFF_ESCAPE_CODE;
+  //Counter for the original message
+  int i;
+  //Counter for the new message
+  int j = 0;
+  int sizeFinalMessage = 0;
+  unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char));
 
-            j+=2;
-        }
-        else{
-            finalMessage[j] = message[i];
-            j++;
-        }
-    }
+  //Loop through all the old message and generate the new one
+  for(i = 0; i < size ; i++) {
+
+		printf("Analyzing packet member: 0x%02x\n", message[i]);
+
+		if(message[i] == FLAG){
+			sizeFinalMessage += 2;
+	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage);
+	    finalMessage[j] = ESCAPE_CODE;
+	    finalMessage[j+1] = STUFF_FLAG_CODE;
+	    j += 2;
+		}
+		else if(message[i] == ESCAPE_CODE) {
+			sizeFinalMessage += 2;
+	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage);
+	    finalMessage[j] = ESCAPE_CODE;
+	    finalMessage[j+1] = STUFF_ESCAPE_CODE;
+	    j += 2;
+		}
+		else {
+			sizeFinalMessage++;
+			finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage);
+		  finalMessage[j] = message[i];
+		  j++;
+		}
+  }
+
+	for (int i = 0; i < sizeFinalMessage; i++) {
+		printf("0x%02x\n", finalMessage[i]);
+	}
+
+	printf("\n");
 
 	return finalMessage;
 }
