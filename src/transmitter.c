@@ -108,6 +108,8 @@ int main(int argc, char** argv)
 
 	llwrite(fd, testPacket, 6);
 
+	sleep(2);
+
 	//
 	//LLCLOSE
 	//
@@ -287,42 +289,71 @@ unsigned char generateBCC2(unsigned char *message, int sizeOfMessage){
 */
 int llwrite(int fd, unsigned char * buffer, int length) {
 
-    //bcc2
-		printf("Preparing BCC2\n");
-    unsigned char BCC2 = generateBCC2(buffer,length);
-		printf("BCC2 generated: %s\n", &BCC2);
-    int sizeBCC2 = 1;
-    unsigned char *stuffedBCC2 = (unsigned char *) malloc(sizeof(unsigned char));
-		stuffedBCC2 = packetStuffing(&BCC2, sizeBCC2);
-		printf("BCC2 stuffed: %s\n", stuffedBCC2);
+	int * finalPacketSize = (int *) malloc(sizeof(int));
+	int * stuffedBCC2Size = (int *) malloc(sizeof(int));
+	unsigned char * finalPacket = (unsigned char *) malloc(sizeof(unsigned char));
 
-    //stuffing
+	//
+  //bcc2
+	//
 
-		printf("Preparing for packet stuffing, current packet: %s\n", buffer);
-		buffer = packetStuffing(buffer, length);
-		printf("Packet stuffed: %s\n", buffer);
+  unsigned char BCC2 = generateBCC2(buffer,length);
+  unsigned char * stuffedBCC2 = (unsigned char *) malloc(sizeof(unsigned char));	
 
-    //concatenate packet header, stuffed message and packet trailer
-		printf("Preparing to concatenate header and trailer, current packet: %s\n", buffer);
-		preparePacket(buffer, *stuffedBCC2);
-		printf("Packet prepared, current packet: %s\n", buffer);
+	//
+  //stuffing
+	//
 
-    //sending packages of the file at once
-		printf("Preparing to send packet\n");
-		write(fd, buffer, 255); //change this value later
-		printf("Packet sent\n");
+	stuffedBCC2 = BCC2Stuffing(&BCC2, stuffedBCC2Size);
+	finalPacket = packetStuffing(buffer, length, finalPacketSize);
 
-    return 0;
+	//
+  //concatenate packet header, stuffed message and packet trailer
+	//
+
+	finalPacket = preparePacket(finalPacket, stuffedBCC2, finalPacketSize, stuffedBCC2Size); 
+	printf("Packet prepared, current packet:\n");
+
+	for (int i = 0; i < (*finalPacketSize); i++) {
+		printf("0x%02x\n", finalPacket[i]);
+	}
+
+	//
+  //sending packages of the file at once
+	//
+
+	printf("Preparing to send packet\n");
+	int num = write(fd, finalPacket, *finalPacketSize); 
+	printf("Number of chars sent: %i\n", num);
+
+	free(finalPacketSize);
+	free(stuffedBCC2);
+	free(finalPacket);
+  return 0;
 }
 
-unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
+unsigned char * BCC2Stuffing(unsigned char * bcc2, int * stuffedBCC2Size) {
+	
+	unsigned char * stuffedBCC2 = (unsigned char *) malloc(sizeof(unsigned char));
 
-    const size_t len1 = strlen((char *)s1);
-    const size_t len2 = strlen((char *)s2);
-    char * result = malloc(len1 + len2 + 1);
-    memcpy(result, s1, len1);
-    memcpy(result + len1, s2, len2 + 1);
-    return (unsigned char *) result;
+	if((*bcc2) == FLAG){
+    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2);
+    stuffedBCC2[0] = ESCAPE_CODE;
+    stuffedBCC2[1] = STUFF_FLAG_CODE;
+		(*stuffedBCC2Size) = 2;
+	}
+	else if((*bcc2) == ESCAPE_CODE) {
+    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2);
+   	stuffedBCC2[0] = ESCAPE_CODE;
+    stuffedBCC2[1] = STUFF_ESCAPE_CODE;
+		(*stuffedBCC2Size) = 2;
+	}
+	else {
+	  stuffedBCC2[0] = (*bcc2);
+		(*stuffedBCC2Size) = 1;
+	}
+
+	return stuffedBCC2;
 }
 
 /**
@@ -331,7 +362,7 @@ unsigned char * concat(const unsigned char * s1, const unsigned char * s2) {
 *   @param len - length of the message to be stuffed
 *   @return the message but stuffed (with no FLAGS in it)
 */
-unsigned char * packetStuffing(unsigned char * message, int size) {
+unsigned char * packetStuffing(unsigned char * message, int size, int * finalPacketSize) {
 
 	printf("Started packet stuffing\n");
 
@@ -372,24 +403,33 @@ unsigned char * packetStuffing(unsigned char * message, int size) {
 	for (int i = 0; i < sizeFinalMessage; i++) {
 		printf("0x%02x\n", finalMessage[i]);
 	}
-
-	printf("\n");
-
+	
+	(*finalPacketSize) = sizeFinalMessage;
 	return finalMessage;
 }
 
-void preparePacket(unsigned char * buf, unsigned char bcc2) {
+unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * finalPacketSize, int * stuffedBCC2Size) {
 
-	unsigned char header[3];
+	unsigned char header[4];
 	header[0] = FLAG;
 	header[1] = A_WRITER;
 	header[2] = packetSign;
+	header[3] = header[1] ^ header[2];
 
 	unsigned char trailer[1];
 	trailer[0] = FLAG;
 
-	buf = concat(header, buf);
-	buf = concat(buf, &bcc2);
-	buf = concat(buf, trailer);
+	unsigned char * auxBuf = (unsigned char *) malloc((*finalPacketSize) * sizeof(unsigned char));
+
+	memcpy(auxBuf, header, 4);
+	memcpy(auxBuf+4, buf, (*finalPacketSize));
+	memcpy(auxBuf+4+(*finalPacketSize), bcc2, (*stuffedBCC2Size));
+	memcpy(auxBuf+4+(*finalPacketSize)+(*stuffedBCC2Size), trailer, 1);
+
+	(*finalPacketSize) += 5 + (*stuffedBCC2Size); // flag, address, control, bcc1, bcc2, flag
+
+	printf("Final packet size in preparePacket: %i\n", *finalPacketSize);
+
+	return auxBuf;
 
 }

@@ -41,7 +41,8 @@ void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
 int llwrite(int fd, unsigned char * buffer, int length);
 unsigned char * concat(const unsigned char * s1, const unsigned char * s2);
-unsigned char * packetStuffing(unsigned char * buf, int len);
+unsigned char * packetStuffing(unsigned char * message, int size, int * finalPacketSize);
+unsigned char * BCC2Stuffing(unsigned char * bcc2, int * stuffedBCC2Size);
 unsigned char generateBCC2(unsigned char *message, int sizeOfMessage);
-void preparePacket(unsigned char * buf, unsigned char bcc2);
+unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * finalPacketSize, int * stuffedBCC2Size);
 
