@@ -32,11 +32,26 @@
 
 #define A_WRITER					0x03
 
+#define RR_0							0x05
+#define RR_1							0x85 
+#define REJ_0							0x01
+#define REJ_1							0x81 
+
+#define APP_CONTROL_DATA	0x01
+#define APP_CONTROL_START	0x02
+#define APP_CONTROL_END		0x03
+#define APP_T_FILESIZE		0x00
+#define APP_T_FILENAME		0x01
+#define APP_L_FILESIZE		0x04
+
 void set_alarm();
 void remove_alarm();
+int sendFile(int fd);
 int llopen(int fd);
 int llclose(int fd);
 int sendControlMessage(int fd, unsigned char control);
+int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control_expecting);
+int stopAndWaitData(int fd, unsigned char * buffer, int length);
 void stateMachine(unsigned char *message, int *state, unsigned char control);
 int llopen(int fd);
 int llwrite(int fd, unsigned char * buffer, int length);

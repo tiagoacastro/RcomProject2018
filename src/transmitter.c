@@ -2,9 +2,7 @@
 #include "transmitter.h"
 
 int packetSign = 0;
-
 volatile int STOP=FALSE;
-
 int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
@@ -67,7 +65,7 @@ int main(int argc, char** argv)
 
   /*
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
-    leitura do(s) pr�ximo(s) caracter(es)
+    leitura do(s) proximo(s) caracter(es)
   */
 
   tcflush(fd, TCIOFLUSH);
@@ -95,20 +93,10 @@ int main(int argc, char** argv)
   }
 
 	//
-	//LLWRITE
+	//SENDFILE (LLWRITE)
 	//
 
-	unsigned char testPacket[6];
-	testPacket[0] = 't';
-	testPacket[1] = 'e';
-	testPacket[2] = 0x7e;
-	testPacket[3] = 's';
-	testPacket[4] = 't';
-	testPacket[5] = '\0';
-
-	llwrite(fd, testPacket, 6);
-
-	sleep(2);
+	sendFile(fd);
 
 	//
 	//LLCLOSE
@@ -124,6 +112,120 @@ int main(int argc, char** argv)
   close(fd);
   return 0;
 }
+
+//
+// Application related functions
+//
+
+int sendFile(int fd) {
+
+	unsigned char testFile[12];
+	testFile[0] = 'p';
+	testFile[1] = 'i';
+	testFile[2] = 'n';
+	testFile[3] = 'g';
+	testFile[4] = 'u';
+	testFile[5] = 'i';
+	testFile[6] = 'm';
+	testFile[7] = '.';
+	testFile[8] = 'g';
+	testFile[9] = 'i';
+	testFile[10] = 'f';
+	testFile[11] = '\0';
+
+	unsigned char testPacket[6];
+	testPacket[0] = 't';
+	testPacket[1] = 'e';
+	testPacket[2] = 0x7e;
+	testPacket[3] = 's';
+	testPacket[4] = 't';
+	testPacket[5] = '\0';
+
+	//loop through these steps for as many times as the number of packets the file is divide into
+
+	int stopAndWaitDataReturn;
+
+	stopAndWaitDataReturn = stopAndWaitData(fd, testPacket, 6);
+	switch(stopAndWaitDataReturn) {
+	case 0:
+		break;
+	case 1:
+		//timed out, call llclose
+		break;
+	case 2:
+		//packet rejected, send it again 
+		stopAndWaitData(fd, testPacket, 6);
+	}
+
+	sleep(2);
+
+	return 0;
+}
+
+unsigned char * openFile(unsigned char * file, int * fileSize) {
+
+	FILE * f;
+	struct stat metadata;
+	unsigned char * fileData;
+
+	if ((f = fopen((char *) file, "rb")) == NULL) {
+		perror("Error opening file\n");
+	}	
+
+	stat((char *) file, &metadata);
+	(*fileSize) = metadata.st_size;
+
+	fileData = (unsigned char *) malloc(*fileSize);
+	fread(fileData, sizeof(unsigned char), *fileSize, f);
+	return fileData;
+}
+
+unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, unsigned char * fileName, int fileNameSize, int * appControlPacketSize) {
+
+	(* appControlPacketSize) = 9 * sizeof(unsigned char) + fileNameSize;
+	unsigned char * controlPacket = (unsigned char *) malloc (*appControlPacketSize);
+
+ 	controlPacket[0] = control;
+	controlPacket[1] = APP_T_FILESIZE;
+	controlPacket[2] = APP_L_FILESIZE;
+	controlPacket[3] = (fileSize >> 24) & 0xFF;
+	controlPacket[4] = (fileSize >> 16) & 0xFF;
+	controlPacket[5] = (fileSize >> 8) & 0xFF;
+	controlPacket[6] = fileSize & 0xFF;
+	controlPacket[7] = APP_T_FILENAME;
+	controlPacket[8] = fileNameSize;
+
+	for (int i = 0; i < fileNameSize; i++) {
+		controlPacket[9+i] = fileName[i];
+	}
+
+	return controlPacket;
+
+}
+
+unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int * packetSize, int * numPackets) {
+	
+	unsigned char * finalDataPacket = (unsigned char *) malloc(fileSize+4);
+
+	finalDataPacket[0] = APP_CONTROL_DATA;
+	finalDataPacket[1] = (*numPackets) % 255;
+	finalDataPacket[2] = fileSize / 256;
+	finalDataPacket[3] = fileSize % 256;
+
+	memcpy(finalDataPacket+4, data, *packetSize);
+	(*packetSize) += 4;
+
+	(*numPackets)++;
+	return finalDataPacket;
+
+}
+
+unsigned char * splitAndSendData(unsigned char * data, )
+
+
+//
+// Data link layer related functions
+//
 
 int sendControlMessage(int fd, unsigned char control) {
 
@@ -232,7 +334,7 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 		while(!alarm_flag && !message_received) {
 			res = read(fd, buf, 1);
 			if(res <= 0){
-				perror("stopAndWait: read nothing\n");
+				//perror("stopAndWait: read nothing\n");
 			}
 			else
 			{
@@ -254,6 +356,119 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
       return 1;
 }
 
+void stateMachineData(unsigned char *message, int *state, unsigned char * controlReceived){
+  switch(*state){
+
+    case 0:                             /* Esta a espera do inicio da trama (0x7E) */
+        if(*message == FLAG){
+            *state = 1;
+        }
+        break;
+
+    case 1:
+        if(*message == ADDRESS){            /* Está à espera do A */
+            *state = 2;
+        }
+        else if(*message == FLAG){    /* Se tiver um 0x7E no meio da trama */
+            *state = 1;
+        }
+        else{                               /* Houve um erro e Adress está incorreto */
+            *state = 0;
+        }
+        break;
+
+    case 2:
+        if(*message == RR_0 || *message == RR_1 || *message == REJ_0 || *message == REJ_1){         /* Recebe o valor de Controlo */
+						*controlReceived = (*message);
+            *state = 3;
+        }
+        else if(*message == FLAG){   /* Se tiver um 0x7E no meio da trama */
+            *state = 1;
+        }
+        else{                               /* Houve um erro e Controlo não está correto */
+            *state = 0;
+        }
+        break;
+
+    case 3:
+        if(*message == ((*controlReceived) ^ ADDRESS)){             /* BCC lido com sucesso */
+            *state = 4;
+        }
+        else{                               /* Erro com BCC */
+            *state = 0;
+        }
+        break;
+
+    case 4:
+        if(*message == FLAG){           /* Recebe o ultimo 7E */
+            message_received = TRUE;
+            alarm(0);
+        }
+        else{                               /* Erro no 7E */
+            *state = 0;
+        }
+        break;
+  }
+}
+
+int stopAndWaitData(int fd, unsigned char * buffer, int length) {
+
+	int res = 0;
+	unsigned char buf[1];
+	int state = 0;
+	unsigned char controlReceived[1];
+
+	reset_alarm_flag();
+	reset_alarm_counter();
+	message_received = FALSE;
+
+	//send the message
+
+	llwrite(fd, buffer, length);
+
+	while(alarm_counter < MAX_ALARM_COUNT && !message_received){
+
+		alarm(TIMEOUT);
+		while(!alarm_flag && !message_received) {
+			res = read(fd, buf, 1); 
+			if(res <= 0){
+				//perror("stopAndWait: read nothing\n");
+			}
+			else
+			{
+				printf("stopAndWait: Received answer: 0x%02x\n", *buf);
+				stateMachineData(buf, &state, controlReceived);
+			}
+		}
+
+		//re-send the data packet
+		if (alarm_flag) {
+			llwrite(fd, buffer, length);
+		}
+
+		reset_alarm_flag();
+
+	};
+
+  if(alarm_counter < MAX_ALARM_COUNT) {
+
+		switch(controlReceived[0]) {
+		case RR_0:
+			packetSign = 1;
+			return 0;
+		case RR_1:
+			packetSign = 0;
+			return 0;
+		case REJ_0:
+			return 2;
+		case REJ_1:
+			return 2;
+		}
+
+  } else
+  	return 1;
+}
+
 
 int llopen(int fd){
 	return stopAndWaitControl(fd, CONTROL_SET,CONTROL_UA);
@@ -261,6 +476,7 @@ int llopen(int fd){
 
 int llclose(int fd) {
 	stopAndWaitControl(fd, CONTROL_DISC,CONTROL_DISC);
+	//if it doesnt respond to the disc signal, it shouldnt try to send the ua
 	sendControlMessage(fd, CONTROL_UA);
   return 0; //shouldn't just be returning 0
 }
@@ -325,6 +541,12 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	printf("Preparing to send packet\n");
 	int num = write(fd, finalPacket, *finalPacketSize); 
 	printf("Number of chars sent: %i\n", num);
+
+	//
+	//waiting for response from receiver
+	//
+
+	
 
 	free(finalPacketSize);
 	free(stuffedBCC2);
