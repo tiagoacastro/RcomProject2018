@@ -220,7 +220,10 @@ unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int 
 
 }
 
-unsigned char * splitAndSendData(unsigned char * data, )
+// podem faltar argumentos!
+unsigned char * splitAndSendData(unsigned char * data){
+	return 0;
+}
 
 
 //
