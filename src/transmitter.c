@@ -10,7 +10,6 @@ int message_received = FALSE;
 void alarm_handler() {
 	alarm_flag = TRUE;
 	alarm_counter++;
-	//printf("alarm counter: %d\n", alarm_counter);
 }
 
 void reset_alarm_flag(){
@@ -79,7 +78,6 @@ int main(int argc, char** argv)
 
 
   //Set the alarm
-
   signal(SIGALRM,alarm_handler);
 
 	//
@@ -169,7 +167,7 @@ unsigned char * openFile(unsigned char * file, int * fileSize) {
 	unsigned char * fileData;
 
 	if ((f = fopen((char *) file, "rb")) == NULL) {
-		perror("Error opening file\n");
+		perror("[openFile] Error opening file\n");
 	}	
 
 	stat((char *) file, &metadata);
@@ -200,8 +198,8 @@ unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, uns
 	}
 
 	return controlPacket;
-
 }
+
 
 unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int * packetSize, int * numPackets) {
 	
@@ -217,7 +215,6 @@ unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int 
 
 	(*numPackets)++;
 	return finalDataPacket;
-
 }
 
 // podem faltar argumentos!
@@ -229,30 +226,25 @@ unsigned char * splitAndSendData(unsigned char * data){
 //
 // Data link layer related functions
 //
-
 int sendControlMessage(int fd, unsigned char control) {
 
 	int res;
 	unsigned char message[5];
 
-  message[0] = FLAG;
+	message[0] = FLAG;
 	message[1] = ADDRESS;
 	message[2] = control;
-	message[3] = message[1]^message[2];		// calcular a paridade da mensagem
+	message[3] = message[1]^message[2];		// Parity of the message
 	message[4] = FLAG;
 
-	//printf("Antes de enviar a mensagem\n");
-
-  res = write(fd, message, 5);
-	if(res <= 0)
-  {
-      return FALSE;
-  }
-  else
-  {
-  	printf("Control message sent: 0x%02x\n", message[2]);
-      return TRUE;
-  }
+	res = write(fd, message, 5);
+	if(res <= 0){
+		return FALSE;
+	}
+	else{
+		printf("[sendControlMessage] Message sent: 0x%02x\n", message[2]);
+		return TRUE;
+	}
 }
 
 /**
@@ -307,7 +299,7 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
         if(*message == FLAG){           /* Recebe o ultimo 7E */
             message_received = TRUE;
             alarm(0);
-            printf("Received 0x%02x\n", control);
+            printf("[stateMachine] Received 0x%02x\n", control);
         }
         else{                               /* Erro no 7E */
             *state = 0;
@@ -317,8 +309,6 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
 }
 
 int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control_expecting) {
-
-	//printf("entered stop and wait\n");
 
 	int res = 0;
 	unsigned char buf[1];
@@ -331,7 +321,6 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 	while(alarm_counter < MAX_ALARM_COUNT && !message_received){
 
 		sendControlMessage(fd, control_sent);
-		//printf("sent control message, waiting response\n");
 		alarm(TIMEOUT);
 		state = 0;
 		while(!alarm_flag && !message_received) {
@@ -341,15 +330,12 @@ int stopAndWaitControl(int fd, unsigned char control_sent, unsigned char control
 			}
 			else
 			{
-				printf("stopAndWait: Received answer: 0x%02x\n", *buf);
+				printf("[stopAndWaitControl] Received answer: 0x%02x\n", *buf);
 			}
 			stateMachine(buf, &state, control_expecting);
 		}
 
 		reset_alarm_flag();
-
-    //printf("Alarm counter %d\n", alarm_counter);
-
 	};
 
   if(alarm_counter < MAX_ALARM_COUNT){
@@ -439,7 +425,7 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 			}
 			else
 			{
-				printf("stopAndWait: Received answer: 0x%02x\n", *buf);
+				printf("[stopAndWaitData] Received answer: 0x%02x\n", *buf);
 				stateMachineData(buf, &state, controlReceived);
 			}
 		}
@@ -490,17 +476,16 @@ int llclose(int fd) {
 * @param size - size of the message sent
 * @returns the parity of the message in form of a unsigned char
 */
-
 unsigned char generateBCC2(unsigned char *message, int sizeOfMessage){
 
-  unsigned char result = message[0];
+	unsigned char result = message[0];
 
-  int i;
-  for(i = 1; i < sizeOfMessage; i++){
-      result = result ^ message[i];
-  }
+	int i;
+	for(i = 1; i < sizeOfMessage; i++){
+		result = result ^ message[i];
+	}
 
-  return result;
+	return result;
 }
 
 /**
@@ -531,19 +516,19 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
 
 	finalPacket = preparePacket(finalPacket, stuffedBCC2, finalPacketSize, stuffedBCC2Size); 
-	printf("Packet prepared, current packet:\n");
+	printf("[llwrite] Packet prepared, current packet:\n");
 
 	for (int i = 0; i < (*finalPacketSize); i++) {
-		printf("0x%02x\n", finalPacket[i]);
+		printf("[llwrite] 0x%02x\n", finalPacket[i]);
 	}
 
 	//
   //sending packages of the file at once
 	//
 
-	printf("Preparing to send packet\n");
+	printf("[llwrite] Preparing to send packet\n");
 	int num = write(fd, finalPacket, *finalPacketSize); 
-	printf("Number of chars sent: %i\n", num);
+	printf("[llwrite] Number of chars sent: %i\n", num);
 
 	//
 	//waiting for response from receiver
@@ -589,12 +574,13 @@ unsigned char * BCC2Stuffing(unsigned char * bcc2, int * stuffedBCC2Size) {
 */
 unsigned char * packetStuffing(unsigned char * message, int size, int * finalPacketSize) {
 
-	printf("Started packet stuffing\n");
+	printf("[packetStuffing] Started packet stuffing\n");
 
   //Counter for the original message
   int i;
   //Counter for the new message
   int j = 0;
+
   int sizeFinalMessage = 0;
   unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char));
 
@@ -626,7 +612,7 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
   }
 
 	for (int i = 0; i < sizeFinalMessage; i++) {
-		printf("0x%02x\n", finalMessage[i]);
+		printf("[packetStuffing] 0x%02x\n", finalMessage[i]);
 	}
 	
 	(*finalPacketSize) = sizeFinalMessage;
@@ -653,7 +639,7 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 
 	(*finalPacketSize) += 5 + (*stuffedBCC2Size); // flag, address, control, bcc1, bcc2, flag
 
-	printf("Final packet size in preparePacket: %i\n", *finalPacketSize);
+	printf("[preparePacket] Final packet size in preparePacket: %i\n", *finalPacketSize);
 
 	return auxBuf;
 
