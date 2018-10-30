@@ -44,9 +44,13 @@
 #define APP_T_FILENAME		0x01
 #define APP_L_FILESIZE		0x04
 
+#define PACKET_SIZE       255
+
 void set_alarm();
 void remove_alarm();
-int sendFile(int fd);
+unsigned char * openFile(unsigned char * file, int * fileSize);
+int sendFile(int fd, unsigned char * fileName, int fileNameSize);
+unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, unsigned char * fileName, int fileNameSize, int * appControlPacketSize); 
 int llopen(int fd);
 int llclose(int fd);
 int sendControlMessage(int fd, unsigned char control);
