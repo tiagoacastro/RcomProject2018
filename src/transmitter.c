@@ -130,6 +130,8 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
   int appControlPacketSize = 0;
   unsigned char * fileData = openFile(fileName, &fileSize);
 
+	printf("[sendFile] File size: %i\n", fileSize);
+
   //prepare and send start packet  
 
   unsigned char * startPacket = prepareAppControlPacket(APP_CONTROL_START, fileSize, fileName, fileNameSize, &appControlPacketSize);
@@ -138,20 +140,23 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 
   //send the file
 
-/*
   int currPos = 0;
   int currPacketSize = PACKET_SIZE;
   int numPackets = 0;
   unsigned char * currPacket;
 
+  while(currPos < fileSize) {
+    currPacket = splitData(fileData, fileSize, &currPos, &currPacketSize);
+		numPackets++;
 
+		for (int i = 0; i < currPacketSize; i++) {
+			printf("[sendFile] Packet number %i : 0x%02x\n", numPackets, currPacket[i]);
+		}
 
-  while(currPos < (*fileSize)) {
-    currPacket = splitData(currPacket, (*fileSize), &currPacketSize, &numPackets);
-    currPacket = prepareDataPacketHeader()
+    //currPacket = prepareDataPacketHeader()
   }
 
-
+/*
 
   //unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int * packetSize, int * numPackets)
 
@@ -245,14 +250,32 @@ unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int 
 }
 
 // podem faltar argumentos!
-unsigned char * splitData(unsigned char * data){
-	return 0;
+unsigned char * splitData(unsigned char * fileData, int fileSize, int * currPos, int * currPacketSize) {
+
+	unsigned char * packet;
+	int j = (*currPos);
+
+	if (j + (*currPacketSize) > fileSize) {
+		(*currPacketSize) = (fileSize - j);
+	}
+
+	packet = (unsigned char *) malloc((*currPacketSize)*sizeof(unsigned char));
+	
+	for(int i = 0; i < (*currPacketSize); i++, j++) {
+		packet[i] = fileData[j];
+	}
+
+	(* currPos) = j;
+
+	return packet;
+
 }
 
 
 //
 // Data link layer related functions
 //
+
 int sendControlMessage(int fd, unsigned char control) {
 
 	int res;
@@ -575,9 +598,9 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
 	//waiting for response from receiver
 	//
-
 	
-	//free(finalPacket);
+	printf("[llwrite] Final message pointer to free: %p\n", finalPacket);
+	free(finalPacket);
   return 0;
 }
 
@@ -664,6 +687,7 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
 	}
 	
 	*finalPacketSize = sizeFinalMessage;
+	printf("[packetStuffing] Final message pointer: %p\n", finalMessage);
 	return finalMessage;
 }
 
@@ -678,6 +702,8 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 	unsigned char trailer[1];
 	trailer[0] = FLAG;
 
+	(*finalPacketSize) += (5 + (*stuffedBCC2Size)); // flag, address, control, bcc1, bcc2, flag
+
 	unsigned char * auxBuf = (unsigned char *) malloc((*finalPacketSize) * sizeof(unsigned char));
 
 	memcpy(auxBuf, header, 4*sizeof(unsigned char));
@@ -685,10 +711,8 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 	memcpy(auxBuf+4+(*finalPacketSize), bcc2, (*stuffedBCC2Size)*sizeof(unsigned char));
 	memcpy(auxBuf+4+(*finalPacketSize)+(*stuffedBCC2Size), trailer, 1*sizeof(unsigned char));
 
-	(*finalPacketSize) += (5 + (*stuffedBCC2Size)); // flag, address, control, bcc1, bcc2, flag
-
 	printf("[preparePacket] Final packet size in preparePacket: %i\n", *finalPacketSize);
-
+	printf("[preparePacket] Final packet pointer in preparePacket: %p\n", auxBuf);
 	return auxBuf;
 
 }
