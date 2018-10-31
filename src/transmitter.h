@@ -37,6 +37,7 @@
 #define REJ_0							0x01
 #define REJ_1							0x81 
 
+#define APP_CONTROL_SIZE_CONST		0x09
 #define APP_CONTROL_DATA	0x01
 #define APP_CONTROL_START	0x02
 #define APP_CONTROL_END		0x03

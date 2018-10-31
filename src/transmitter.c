@@ -7,6 +7,10 @@ int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
 
+//
+// ALARM HANDLER 
+//
+
 void alarm_handler() {
 	alarm_flag = TRUE;
 	alarm_counter++;
@@ -20,6 +24,10 @@ void reset_alarm_counter() {
 	alarm_counter = 0;
 }
 
+//
+// APPLICATION
+//
+
 
 int main(int argc, char** argv)
 {
@@ -32,7 +40,6 @@ int main(int argc, char** argv)
       printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
       exit(1);
     }
-
 
   /*
     Open serial port device for reading and writing and not as controlling tty
@@ -94,7 +101,7 @@ int main(int argc, char** argv)
 	//SENDFILE (LLWRITE)
 	//
 
-	sendFile(fd, "pinguim.gif", 13);
+	sendFile(fd, (unsigned char *) "pinguim.gif", 13);
 
 	//
 	//LLCLOSE
@@ -125,27 +132,29 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 
   //prepare and send start packet  
 
-  unsigned char * startPacket = prepareAppControlPacket(APP_CONTROL_START, &fileSize, fileName, fileNameSize, &appControlPacketSize);
+  unsigned char * startPacket = prepareAppControlPacket(APP_CONTROL_START, fileSize, fileName, fileNameSize, &appControlPacketSize);
 
   stopAndWaitData(fd, startPacket, appControlPacketSize);
 
   //send the file
 
+/*
   int currPos = 0;
   int currPacketSize = PACKET_SIZE;
   int numPackets = 0;
   unsigned char * currPacket;
 
-/*
+
 
   while(currPos < (*fileSize)) {
     currPacket = splitData(currPacket, (*fileSize), &currPacketSize, &numPackets);
     currPacket = prepareDataPacketHeader()
   }
 
-*/
+
 
   //unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int * packetSize, int * numPackets)
+
 
 
 	unsigned char testPacket[6];
@@ -171,6 +180,7 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 		//packet rejected, send it again 
 		stopAndWaitData(fd, testPacket, 6);
 	}
+*/
 
 	sleep(2);
 
@@ -190,15 +200,15 @@ unsigned char * openFile(unsigned char * file, int * fileSize) {
 	stat((char *) file, &metadata);
 	(*fileSize) = metadata.st_size;
 
-	fileData = (unsigned char *) malloc(*fileSize);
+	fileData = (unsigned char *) malloc((*fileSize)*sizeof(unsigned char));
 	fread(fileData, sizeof(unsigned char), *fileSize, f);
 	return fileData;
 }
 
 unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, unsigned char * fileName, int fileNameSize, int * appControlPacketSize) {
 
-	(* appControlPacketSize) = 9 * sizeof(unsigned char) + fileNameSize;
-	unsigned char * controlPacket = (unsigned char *) malloc (*appControlPacketSize);
+	(* appControlPacketSize) = APP_CONTROL_SIZE_CONST + fileNameSize;
+	unsigned char * controlPacket = (unsigned char *) malloc ((*appControlPacketSize)*sizeof(unsigned char));
 
  	controlPacket[0] = control;
 	controlPacket[1] = APP_T_FILESIZE;
@@ -220,14 +230,14 @@ unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, uns
 
 unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int * packetSize, int * numPackets) {
 	
-	unsigned char * finalDataPacket = (unsigned char *) malloc(fileSize+4);
+	unsigned char * finalDataPacket = (unsigned char *) malloc((fileSize+4) * sizeof(unsigned char));
 
 	finalDataPacket[0] = APP_CONTROL_DATA;
 	finalDataPacket[1] = (*numPackets) % 255;
 	finalDataPacket[2] = fileSize / 256;
 	finalDataPacket[3] = fileSize % 256;
 
-	memcpy(finalDataPacket+4, data, *packetSize);
+	memcpy(finalDataPacket+4, data, (*packetSize)*sizeof(unsigned char));
 	(*packetSize) += 4;
 
 	(*numPackets)++;
@@ -480,8 +490,10 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 			return 2;
 		}
 
-  } else
-  	return 1;
+	}
+
+  return 1;
+
 }
 
 
@@ -565,7 +577,7 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
 
 	
-	free(finalPacket);
+	//free(finalPacket);
   return 0;
 }
 
@@ -576,13 +588,13 @@ unsigned char * BCC2Stuffing(unsigned char * bcc2, int * stuffedBCC2Size) {
   printf("[BCC2Stuffing] Entered bcc2stuffing\n");
 
 	if((*bcc2) == FLAG){
-    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2);
+    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2*sizeof(unsigned char));
     stuffedBCC2[0] = ESCAPE_CODE;
     stuffedBCC2[1] = STUFF_FLAG_CODE;
 		(*stuffedBCC2Size) = 2;
 	}
 	else if((*bcc2) == ESCAPE_CODE) {
-    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2);
+    stuffedBCC2 = (unsigned char *)realloc(stuffedBCC2,2*sizeof(unsigned char));
    	stuffedBCC2[0] = ESCAPE_CODE;
     stuffedBCC2[1] = STUFF_ESCAPE_CODE;
 		(*stuffedBCC2Size) = 2;
@@ -614,6 +626,7 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
   int j = 0;
 
   int sizeFinalMessage = 0;
+	printf("[packetStuffing] size: %i\n", size);
   unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char)*size);
 
   if (finalMessage == NULL) {
@@ -623,23 +636,24 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
   //Loop through all the old message and generate the new one
   for(i = 0; i < size ; i++) {
 
-		printf("Analyzing packet member: 0x%02x\n", message[i]);
+		printf("[packetStuffing] Analyzing packet member: 0x%02x\n", message[i]);
 
 		if(message[i] == FLAG) {
       sizeFinalMessage++;
-	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage);
+	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage * sizeof(unsigned char));
 	    finalMessage[j] = ESCAPE_CODE;
 	    finalMessage[j+1] = STUFF_FLAG_CODE;
 	    j += 2;
 		}
 		else if(message[i] == ESCAPE_CODE) {
       sizeFinalMessage++;
-	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage);
+	    finalMessage = (unsigned char *)realloc(finalMessage,sizeFinalMessage * sizeof(unsigned char));
 	    finalMessage[j] = ESCAPE_CODE;
 	    finalMessage[j+1] = STUFF_ESCAPE_CODE;
 	    j += 2;
 		}
 		else {
+			sizeFinalMessage++;
 		  finalMessage[j] = message[i];
 		  j++;
 		}
@@ -649,9 +663,7 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
 		printf("[packetStuffing] 0x%02x\n", finalMessage[i]);
 	}
 	
-  //printf("[packetStuffing] Before setting the final message size\n");
-	(*finalPacketSize) = sizeFinalMessage;
-  //printf("[packetStuffing] After setting the final message size\n");
+	*finalPacketSize = sizeFinalMessage;
 	return finalMessage;
 }
 
@@ -668,12 +680,12 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 
 	unsigned char * auxBuf = (unsigned char *) malloc((*finalPacketSize) * sizeof(unsigned char));
 
-	memcpy(auxBuf, header, 4);
-	memcpy(auxBuf+4, buf, (*finalPacketSize));
-	memcpy(auxBuf+4+(*finalPacketSize), bcc2, (*stuffedBCC2Size));
-	memcpy(auxBuf+4+(*finalPacketSize)+(*stuffedBCC2Size), trailer, 1);
+	memcpy(auxBuf, header, 4*sizeof(unsigned char));
+	memcpy(auxBuf+4, buf, (*finalPacketSize)*sizeof(unsigned char));
+	memcpy(auxBuf+4+(*finalPacketSize), bcc2, (*stuffedBCC2Size)*sizeof(unsigned char));
+	memcpy(auxBuf+4+(*finalPacketSize)+(*stuffedBCC2Size), trailer, 1*sizeof(unsigned char));
 
-	(*finalPacketSize) += 5 + (*stuffedBCC2Size); // flag, address, control, bcc1, bcc2, flag
+	(*finalPacketSize) += (5 + (*stuffedBCC2Size)); // flag, address, control, bcc1, bcc2, flag
 
 	printf("[preparePacket] Final packet size in preparePacket: %i\n", *finalPacketSize);
 
