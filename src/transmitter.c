@@ -146,13 +146,32 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
   while(currPos < fileSize) {
     currPacket = splitData(fileData, fileSize, &currPos, &currPacketSize);
     currPacket = prepareDataPacketHeader(currPacket, fileSize, &currPacketSize, &numPackets);
-		llwrite(fd, currPacket, currPacketSize);
+
+		int stopAndWaitDataReturn;
+
+		stopAndWaitDataReturn = stopAndWaitData(fd, currPacket, currPacketSize);
+		switch(stopAndWaitDataReturn) {
+		case 0:
+			break;
+		case 1:
+			//timed out, call llclose
+			break;
+		case 2:
+			//packet rejected, send it again 
+			stopAndWaitData(fd, currPacket, currPacketSize);
+		}
+		
+		currPacketSize = PACKET_SIZE;
 		free(currPacket);
   }
 
+	//send end packet
+
+	unsigned char * endPacket = prepareAppControlPacket(APP_CONTROL_END, fileSize, fileName, fileNameSize, &appControlPacketSize);
+
+  stopAndWaitData(fd, endPacket, appControlPacketSize);
+
 /*
-
-
 	unsigned char testPacket[6];
 	testPacket[0] = 'g';
 	testPacket[1] = 'h';
@@ -568,7 +587,12 @@ int llwrite(int fd, unsigned char * buffer, int length) {
   //sending packages of the file at once
 	//
 
-	int num = write(fd, finalPacket, finalPacketSize); 
+	for(int i = 0; i < finalPacketSize; i++) {
+		printf("[llwrite] Final packet: 0x%02x\n", finalPacket[i]);
+	}
+
+	int num = write(fd, finalPacket, finalPacketSize);
+	printf("[llwrite] Sent %i bytes\n", num); 
 
 	//
 	//waiting for response from receiver
@@ -615,7 +639,7 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
   //Counter for the new message
   int j = 0;
 
-  int sizeFinalMessage = 0;
+  int sizeFinalMessage = size;
   unsigned char *finalMessage = (unsigned char *)malloc(sizeof(unsigned char)*size);
 
   if (finalMessage == NULL) {
@@ -640,7 +664,6 @@ unsigned char * packetStuffing(unsigned char * message, int size, int * finalPac
 	    j += 2;
 		}
 		else {
-			sizeFinalMessage++;
 		  finalMessage[j] = message[i];
 		  j++;
 		}
