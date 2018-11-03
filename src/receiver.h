@@ -37,21 +37,21 @@ included by <termios.h> */
 #define NAME   	        0x01
 
 struct FileInfo{
-  int size;
-  char* name;
-  char* content;
+  unsigned int size;
+  unsigned char* name;
+  unsigned char* content;
 };
 
 int llOpen(int fd);
 int llClose(int fd);
-void readControlMessage(int fd, char control);
-void writeControlMessage(int fd, char control);
-int llread(int fd, char* buffer);
-int destuffing(char* buffer, unsigned int packetSize);
-int checkBCC2(char* buffer, unsigned int packetSize);
-int readPacket(int fd, char* buffer);
-int getFileInfo(char* start);
-void readContent(int fd, char* start, unsigned int startSize);
-int isEndPacket(char* start, int startSize, char* end, int endSize);
-int removeHeader(char* packet, int size);
+void readControlMessage(int fd, unsigned char control);
+void writeControlMessage(int fd, unsigned char control);
+unsigned int llread(int fd, unsigned char* buffer);
+int destuffing(unsigned char* buffer, unsigned int packetSize);
+int checkBCC2(unsigned char* buffer, unsigned int packetSize);
+unsigned int readPacket(int fd, unsigned char* buffer);
+int getFileInfo(unsigned char* start);
+void readContent(int fd, unsigned char* start, unsigned int startSize);
+unsigned int isEndPacket(unsigned char* start, unsigned int startSize, unsigned char* end, unsigned int endSize);
+unsigned int removeHeader(unsigned char* packet, unsigned int size);
 void createFile();
