@@ -352,12 +352,12 @@ unsigned int readPacket(int fd, unsigned char* buffer){
 }
 
 int getFileInfo(unsigned char* start){
-  unsigned int type = *(start);
+  unsigned char type = *(start);
 
   if(type != START)
     return -1;
 
-  unsigned int param = (unsigned int)*(start + 1);
+  unsigned char param = *(start + 1);
   unsigned int octets = (unsigned int)*(start + 2);
   off_t octetVal;
   off_t size = 0;
@@ -373,7 +373,7 @@ int getFileInfo(unsigned char* start){
   info.size = (unsigned int)size;
 
   unsigned char* next = start + 3 + octets;
-  param = (unsigned int)*(next);
+  param = *(next);
 
   if(param != NAME)
     return -1;
@@ -396,7 +396,7 @@ int getFileInfo(unsigned char* start){
 
 unsigned int isEndPacket(unsigned char* start, unsigned int startSize, unsigned char* end, unsigned int endSize) {
 
-  unsigned int type = *(end);
+  unsigned char type = *(end);
 
 	printf("[isEndPacket] Start packet size: %i\n", startSize);
 	printf("[isEndPacket] End packet size: %i\n", endSize);
