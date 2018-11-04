@@ -53,8 +53,8 @@ int main(int argc, unsigned char** argv){
   free(start);
   free(info.name);
   free(info.content);
+  readControlMessage(fd, C_DISC);
   llClose(fd);
-  close(fd);
   return 0;
 }
 
@@ -98,13 +98,13 @@ int llOpen(int fd){
 }
 
 int llClose(int fd){
-  readControlMessage(fd, C_DISC);
-
   writeControlMessage(fd, C_DISC);
 
   readControlMessage(fd, C_UA);
 
   tcsetattr(fd, TCSANOW, &oldtio);
+
+  close(fd);
 
   return 0;
 }
@@ -160,11 +160,18 @@ void readControlMessage(int fd, unsigned char control){
           && message[3] == (A^control)
           && message[4] == FLAG)
       	retry = FALSE;
-      else {
-        state = 0;
-        complete = FALSE;
-        i = 0;
-      }
+      else if(message[0] == FLAG
+          && message[1] == A
+          && message[2] == C_DISC
+          && message[3] == (A^C_DISC)
+          && message[4] == FLAG){
+            llClose(fd);
+            exit(0);
+          } else {
+            state = 0;
+            complete = FALSE;
+            i = 0;
+          }
     }
 }
 
@@ -184,6 +191,7 @@ unsigned int llread(int fd, unsigned char* buffer){
   unsigned char buf, c;
 	unsigned int packetSize = 0;
   unsigned int res = 0;
+  unsigned int disc = FALSE;
 
   packet = -1;
 
@@ -199,6 +207,7 @@ unsigned int llread(int fd, unsigned char* buffer){
     			break;
     		case 1: // address
 					printf("state 1\n");
+          disc = FALSE;
     			if(buf == A)
     				state++;
     			else
@@ -207,26 +216,39 @@ unsigned int llread(int fd, unsigned char* buffer){
     			break;
     		case 2: // control
 					printf("state 2\n");
-    			if(buf == C_0)
-    				packet = 0;
-    			else
-    				if(buf == C_1)
-    					packet = 1;
-    				else{
-    					if(buf == FLAG)
-    						state = 1;
-    					else
-    						state = 0;
-    					break;
-    				}
-    			c = buf;
-    			state++;
+          switch(buf){
+            case C_0:
+              packet = 0;
+              c = buf;
+        			state++;
+              break;
+            case C_1:
+              packet = 1;
+              c = buf;
+          		state++;
+              break;
+            case C_DISC:
+              c = buf;
+              state++;
+              disc = TRUE;
+              break;
+            case FLAG:
+              state = 1;
+              break;
+            default:
+              state = 0;
+              break;
+          }
     			break;
     		case 3: // bcc1
 					printf("state 3\n");
-    			if (buf == (A ^ c))
-    				state++;
-    			else
+    			if (buf == (A ^ c)){
+            if(disc){
+              state = 5;
+              disc = FALSE;
+            } else
+    				  state++;
+    			} else
     				if(buf == FLAG)
     					state = 1;
     				else
@@ -245,6 +267,15 @@ unsigned int llread(int fd, unsigned char* buffer){
             }
     				*(buffer + packetSize - 1) = buf;
     			}
+          break;
+        case 5: //disc
+          printf("state 5\n");
+          if (buf == FLAG) {
+    				llClose(fd);
+            exit(0);
+    			} else
+            state = 0;
+          break;
     		}}
   }
 
