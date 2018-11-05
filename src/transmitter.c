@@ -1,7 +1,7 @@
 /*Non-Canonical Input Processing*/
 #include "transmitter.h"
 
-int packetSign = 0;
+int packetSign = C_0;
 volatile int STOP=FALSE;
 int alarm_flag = FALSE;
 int alarm_counter = 0;
@@ -503,20 +503,23 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 	};
 
   if(alarm_counter < MAX_ALARM_COUNT) {
-
+		printf("changing packet\n");
 		switch(controlReceived[0]) {
 		case RR_0:
-			packetSign = 1;
+			packetSign = C_0;
+printf("rr0 new sign is %c\n", packetSign);
 			return 0;
 		case RR_1:
-			packetSign = 0;
+			packetSign = C_1;
+printf("rr1 new sign is %c\n", packetSign);
 			return 0;
 		case REJ_0:
+printf("rej0\n");
 			return 2;
 		case REJ_1:
+printf("rej1\n");
 			return 2;
 		}
-
 	}
 
   return 1;
@@ -586,11 +589,11 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
   //sending packages of the file at once
 	//
-
+	/*
 	for(int i = 0; i < finalPacketSize; i++) {
 		printf("[llwrite] Final packet: 0x%02x\n", finalPacket[i]);
 	}
-
+	*/
 	int num = write(fd, finalPacket, finalPacketSize);
 	printf("[llwrite] Sent %i bytes\n", num); 
 
@@ -680,6 +683,8 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 	header[1] = A_WRITER;
 	header[2] = packetSign;
 	header[3] = header[1] ^ header[2];
+
+	printf("[preparePacket] Packet sign: 0x%02x\n", header[2]);
 
 	unsigned char trailer[1];
 	trailer[0] = FLAG;

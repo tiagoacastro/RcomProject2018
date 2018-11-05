@@ -45,6 +45,9 @@
 #define APP_T_FILENAME		0x01
 #define APP_L_FILESIZE		0x04
 
+#define C_0							0x00
+#define C_1 						0x40
+
 #define PACKET_SIZE       255
 
 void set_alarm();
