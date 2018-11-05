@@ -85,7 +85,15 @@ int main(int argc, char** argv)
 
 
   //Set the alarm
-  signal(SIGALRM,alarm_handler);
+
+	struct sigaction sa;
+	sa.sa_handler = alarm_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+
+	sigaction(SIGALRM, &sa, NULL);
+
+ //signal(SIGALRM,alarm_handler);
 
 	//
 	//LLOPEN
@@ -93,7 +101,7 @@ int main(int argc, char** argv)
 
 	int error = llopen(fd);
 	if(error != 0){
-		perror("Error with llopen\n");
+		perror("Could not connect\n");
         exit(1);
   }
  
@@ -196,9 +204,6 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 		stopAndWaitData(fd, testPacket, 6);
 	}
 */
-
-	sleep(2);
-
 	return 0;
 }
 
@@ -234,8 +239,9 @@ unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, uns
 	controlPacket[6] = fileSize & 0xFF;
 	controlPacket[7] = APP_T_FILENAME;
 	controlPacket[8] = fileNameSize;
-
-	for (int i = 0; i < fileNameSize; i++) {
+	
+	int i;
+	for (i = 0; i < fileNameSize; i++) {
 		controlPacket[9+i] = fileName[i];
 	}
 
@@ -273,7 +279,8 @@ unsigned char * splitData(unsigned char * fileData, int fileSize, int * currPos,
 
 	packet = (unsigned char *) malloc((*currPacketSize)*sizeof(unsigned char));
 	
-	for(int i = 0; i < (*currPacketSize); i++, j++) {
+	int i;
+	for(i = 0; i < (*currPacketSize); i++, j++) {
 		packet[i] = fileData[j];
 	}
 
@@ -507,19 +514,22 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 		switch(controlReceived[0]) {
 		case RR_0:
 			packetSign = C_0;
-printf("rr0 new sign is %c\n", packetSign);
+			printf("rr0 new sign is %c\n", packetSign);
 			return 0;
 		case RR_1:
 			packetSign = C_1;
-printf("rr1 new sign is %c\n", packetSign);
+			printf("rr1 new sign is %c\n", packetSign);
 			return 0;
 		case REJ_0:
-printf("rej0\n");
+			printf("rej0\n");
 			return 2;
 		case REJ_1:
-printf("rej1\n");
+			printf("rej1\n");
 			return 2;
 		}
+	} else {
+		printf("[stopAndWaitData]Timeout while sending data, closing connection\n");
+		exit(1);
 	}
 
   return 1;
