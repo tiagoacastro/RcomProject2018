@@ -2,7 +2,7 @@
 #include "transmitter.h"
 
 int packetSign = C_0;
-volatile int STOP=FALSE;
+volatile int STOP = FALSE;
 int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
@@ -34,10 +34,10 @@ int main(int argc, char** argv)
     int fd;
     struct termios oldtio,newtio;
 
-    if ( (argc < 2) ||
+    if ( (argc < 3) ||
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) &&
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1 test.txt\n");
       exit(1);
     }
 
@@ -93,10 +93,8 @@ int main(int argc, char** argv)
 
 	sigaction(SIGALRM, &sa, NULL);
 
- //signal(SIGALRM,alarm_handler);
-
 	//
-	//LLOPEN
+	//llopen
 	//
 
 	int error = llopen(fd);
@@ -106,18 +104,18 @@ int main(int argc, char** argv)
   }
  
 	//
-	//SENDFILE (LLWRITE)
+	//send file
 	//
 
-	sendFile(fd, (unsigned char *) "pinguim.gif", 13);
+	sendFile(fd, argv[2], 13);
 
 	//
-	//LLCLOSE
+	//llclose
 	//
 
 	llclose(fd);
 
-  if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
+  if (tcsetattr(fd,TCSANOW,&oldtio) == -1) {
     perror("tcsetattr");
     exit(-1);
   }
@@ -144,6 +142,10 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 
   stopAndWaitData(fd, startPacket, appControlPacketSize);
 
+	//free allocated memory (startPacket)
+
+	free(startPacket);
+
   //send the file
 
   int currPos = 0;
@@ -162,7 +164,8 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 		case 0:
 			break;
 		case 1:
-			//timed out, call llclose
+			//timed out, exit application
+			
 			break;
 		case 2:
 			//packet rejected, send it again 
@@ -179,31 +182,10 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 
   stopAndWaitData(fd, endPacket, appControlPacketSize);
 
-/*
-	unsigned char testPacket[6];
-	testPacket[0] = 'g';
-	testPacket[1] = 'h';
-	testPacket[2] = 0x7e;
-	testPacket[3] = 's';
-	testPacket[4] = 't';
-	testPacket[5] = '\0';
+	//free allocated memory (endPacket and fileData)
+	free(fileData);
+	free(startPacket);
 
-	//loop through these steps for as many times as the number of packets the file is divide into
-
-	int stopAndWaitDataReturn;
-
-	stopAndWaitDataReturn = stopAndWaitData(fd, testPacket, 6);
-	switch(stopAndWaitDataReturn) {
-	case 0:
-		break;
-	case 1:
-		//timed out, call llclose
-		break;
-	case 2:
-		//packet rejected, send it again 
-		stopAndWaitData(fd, testPacket, 6);
-	}
-*/
 	return 0;
 }
 
@@ -528,7 +510,7 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 			return 2;
 		}
 	} else {
-		printf("[stopAndWaitData]Timeout while sending data, closing connection\n");
+		printf("[stopAndWaitData] Timeout while sending data, terminating program\n");
 		exit(1);
 	}
 
@@ -610,7 +592,8 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
 	//waiting for response from receiver
 	//
-
+	
+	free(stuffedBCC2);
 	free(finalPacket);
   return 0;
 }
