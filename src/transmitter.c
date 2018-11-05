@@ -197,6 +197,7 @@ unsigned char * openFile(unsigned char * file, int * fileSize) {
 
 	if ((f = fopen((char *) file, "rb")) == NULL) {
 		perror("[openFile] Error opening file\n");
+		exit(1);
 	}	
 
 	stat((char *) file, &metadata);
