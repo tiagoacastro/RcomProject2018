@@ -198,15 +198,15 @@ unsigned int llread(int fd, unsigned char* buffer){
   while(!stop){
   	res = read(fd, &buf, 1);
     if(res > 0){
-			printf("unsigned char: 0x%02x \n", buf);
+			//printf("unsigned char: 0x%02x \n", buf);
     	switch(state){
     		case 0: // start
-					printf("state 0\n");
+					//printf("state 0\n");
     			if(buf == FLAG)
     				state++;
     			break;
     		case 1: // address
-					printf("state 1\n");
+					//printf("state 1\n");
           disc = FALSE;
     			if(buf == A)
     				state++;
@@ -215,7 +215,7 @@ unsigned int llread(int fd, unsigned char* buffer){
     					state = 0;
     			break;
     		case 2: // control
-					printf("state 2\n");
+					//printf("state 2\n");
           switch(buf){
             case C_0:
               packet = 0;
@@ -241,7 +241,7 @@ unsigned int llread(int fd, unsigned char* buffer){
           }
     			break;
     		case 3: // bcc1
-					printf("state 3\n");
+					//printf("state 3\n");
     			if (buf == (A ^ c)){
             if(disc){
               state = 5;
@@ -255,7 +255,7 @@ unsigned int llread(int fd, unsigned char* buffer){
     					state = 0;
     			break;
     		case 4: //data
-					printf("state 4\n");
+					//printf("state 4\n");
     			if (buf == FLAG) {
     				stop = TRUE;
     			} else {
@@ -269,7 +269,7 @@ unsigned int llread(int fd, unsigned char* buffer){
     			}
           break;
         case 5: //disc
-          printf("state 5\n");
+          //printf("state 5\n");
           if (buf == FLAG) {
     				llClose(fd);
             exit(0);
@@ -354,13 +354,13 @@ unsigned int readPacket(int fd, unsigned char* buffer){
   do {
     packetSize = llread(fd, buffer);
     buffer = changed;
-		//printf("got it\n");
+		printf("got it\n");
   	packetSize = destuffing(buffer, packetSize);
     buffer = changed;
-		//printf("destuffed\n");
+		printf("destuffed\n");
     packetSize = checkBCC2(buffer, packetSize);
     buffer = changed;
-		//printf("checked bcc2\n");
+		printf("checked bcc2\n");
     if(packetSize != -1){
       if(packet == 0)
         writeControlMessage(fd, RR_C_1);
@@ -372,10 +372,13 @@ unsigned int readPacket(int fd, unsigned char* buffer){
       else
         packetSize = -1;
     } else {
-      if(packet == 0)
+      if(packet == 0) {
+				printf("[readPacket] Rejected packet\n");
         writeControlMessage(fd, REJ_C_1);
-      else
+      } else {
+				printf("[readPacket] Rejected packet\n");
         writeControlMessage(fd, REJ_C_0);
+			}
     }
   } while(packetSize == -1);
 
