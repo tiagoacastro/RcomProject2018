@@ -47,6 +47,15 @@ int main(int argc, unsigned char** argv){
   if (fd <0) {perror(argv[2]); exit(-1); }
   llOpen(fd);
 
+  //Set the alarm
+
+	struct sigaction sa;
+	sa.sa_handler = alarm_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+
+	sigaction(SIGALRM, &sa, NULL);
+
   unsigned char* start = (unsigned char*)malloc(sizeof(unsigned char));
   if(start == NULL){
     printf("Tried to malloc, out of memory\n");
@@ -375,6 +384,9 @@ unsigned int readPacket(int fd, unsigned char* buffer){
   int packetSize;
 
   do {
+
+		message_received = FALSE;	
+
     packetSize = llread(fd, buffer);
     buffer = changed;
 		printf("got it\n");
@@ -389,6 +401,9 @@ unsigned int readPacket(int fd, unsigned char* buffer){
         writeControlMessage(fd, RR_C_1);
       else
         writeControlMessage(fd, RR_C_0);
+
+			message_received = TRUE;
+			alarm(0);
 
       if (packet == expected)
         expected ^= 1;
@@ -537,6 +552,7 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
       printf("Tried to malloc, out of memory\n");
       exit(-1);
     }
+
     packetSize = readPacket(fd, packet);
     packet = changed;
 
@@ -558,6 +574,12 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
 
     free(packet);
   }
+
+	if (alarm_flag) {
+		printf("[readContent] Timed out, exiting application\n");
+		exit(1);
+	}	
+
 }
 
 void createFile(){
