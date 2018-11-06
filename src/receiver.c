@@ -7,6 +7,27 @@ int expected = 0;
 struct FileInfo info;
 unsigned char* changed;
 
+int alarm_flag = FALSE;
+int alarm_counter = 0;
+int message_received = FALSE;
+
+//
+// ALARM HANDLER 
+//
+
+void alarm_handler() {
+	alarm_flag = TRUE;
+	alarm_counter++;
+}
+
+void reset_alarm_flag(){
+  alarm_flag = FALSE;
+}
+
+void reset_alarm_counter() {
+	alarm_counter = 0;
+}
+
 int main(int argc, unsigned char** argv){
 
   int fd;
@@ -45,6 +66,8 @@ int main(int argc, unsigned char** argv){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
   }
+
+	printf("[main] startSize: %i\n", startSize);
 
   readContent(fd, start, startSize);
 
@@ -382,6 +405,12 @@ unsigned int readPacket(int fd, unsigned char* buffer){
     }
   } while(packetSize == -1);
 
+	printf("[readPacket] Packet read:\n");	
+
+	for (int i = 0; i < packetSize; i++) {
+		printf("[readPacket] 0x%02x\n", buffer[i]);
+	}
+
   return packetSize;
 }
 
@@ -413,15 +442,23 @@ int getFileInfo(unsigned char* start){
     return -1;
 
   octets = (unsigned int)*(next + 1);
-  unsigned char* name =  (unsigned char*)malloc(octets * sizeof(unsigned char));
+
+	printf("[getFileInfo] File name size: %i\n", (int) octets);
+
+  unsigned char* name = (unsigned char*)malloc((octets+1) * sizeof(unsigned char));
   if(name == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
   }
 
-  for(unsigned int i = 0; i < octets; i++) {
+	int i;
+  for(i = 0; i < octets; i++) {
     *(name + i) = *(next + 2 + i);
   }
+
+	*(name + i) = '\0';
+
+	printf("[getFileInfo] File name: %s\n", name);
 
   info.name = name;
 
@@ -432,15 +469,15 @@ unsigned int isEndPacket(unsigned char* start, unsigned int startSize, unsigned 
 
   unsigned char type = *(end);
 
-	printf("[isEndPacket] Start packet size: %i\n", startSize);
-	printf("[isEndPacket] End packet size: %i\n", endSize);
+	//printf("[isEndPacket] Start packet size: %i\n", startSize);
+	//printf("[isEndPacket] End packet size: %i\n", endSize);
 
   if(startSize != endSize || type != END)
     return FALSE;
 
   for(unsigned int i = 1; i < startSize; i++) {
-		printf("[isEndPacket] Start byte in position %i: 0x%02x\n", i, *(start + i));
-		printf("[isEndPacket] End byte in position %i: 0x%02x\n", i, *(end + i));
+		//printf("[isEndPacket] Start byte in position %i: 0x%02x\n", i, *(start + i));
+		//printf("[isEndPacket] End byte in position %i: 0x%02x\n", i, *(end + i));
     if (*(start + i) != *(end + i))
       return FALSE;
   }
@@ -452,6 +489,17 @@ unsigned int isEndPacket(unsigned char* start, unsigned int startSize, unsigned 
 unsigned int removeHeader(unsigned char* packet, unsigned int size){
   unsigned int newSize = size - 4;
   unsigned char *newPacket = (unsigned char*)malloc(newSize * sizeof(unsigned char));
+
+	printf("[removeHeader] size: %i\n", size);
+
+	printf("[removeHeader] packet:\n");
+
+	for (int i = 0; i < size; i++) {
+		printf("[removeHeader] 0x%02x\n", packet[i]);
+	}
+
+	printf("[removeHeader] Past malloc\n");
+
   if(newPacket == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
@@ -462,9 +510,14 @@ unsigned int removeHeader(unsigned char* packet, unsigned int size){
     *(newPacket + i) = *(packet + i + 4);
   }
 
+		printf("[removeHeader] Past read cycle\n");
+
   changed = newPacket;
 
   free(packet);
+
+	printf("[removeHeader] Past free\n");
+
   return newSize;
 }
 
@@ -473,9 +526,11 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
   unsigned int packetSize;
   unsigned int index;
 
-  while(TRUE){
+	reset_alarm_flag();
+	reset_alarm_counter();
+	message_received = FALSE;
 
-		printf("[readContent] AHHHHHHHHHHHHHHHHHHHHHHH\n");
+  while(TRUE) {
 
     packet = (unsigned char*)malloc(sizeof(unsigned char));
     if(packet == NULL){
@@ -491,8 +546,12 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
       break;
     }
 
+		printf("[readContent] Past isEndPacket\n");
+
     packetSize = removeHeader(packet, packetSize);
     packet = changed;
+
+		printf("[readContent] Past removeHeader\n");		
 
     memcpy(info.content + index, packet, packetSize);
     index += packetSize;
