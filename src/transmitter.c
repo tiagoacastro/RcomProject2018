@@ -8,7 +8,7 @@ int alarm_counter = 0;
 int message_received = FALSE;
 
 //
-// ALARM HANDLER 
+// Alarm handler
 //
 
 void alarm_handler() {
@@ -25,7 +25,7 @@ void reset_alarm_counter() {
 }
 
 //
-// APPLICATION
+// Application
 //
 
 
@@ -81,8 +81,7 @@ int main(int argc, char** argv)
     exit(-1);
   }
 
-  printf("New termios structure set\n");
-
+  //printf("New termios structure set\n");
 
   //Set the alarm
 
@@ -100,14 +99,15 @@ int main(int argc, char** argv)
 	int error = llopen(fd);
 	if(error != 0){
 		perror("Could not connect\n");
-        exit(1);
+    exit(1);
   }
  
 	//
 	//send file
 	//
 
-	sendFile(fd, argv[2], 13);
+	printf("[main] File name size: %i\n", (int) strlen(argv[2]));
+	sendFile(fd, (unsigned char *) argv[2], strlen(argv[2]));
 
 	//
 	//llclose
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 }
 
 //
-// Application related functions
+// Application functions
 //
 
 int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
@@ -165,8 +165,8 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 			break;
 		case 1:
 			//timed out, exit application
-			
-			break;
+			perror("[sendFile] Connection timed out, closing application\n");
+			exit(1);
 		case 2:
 			//packet rejected, send it again 
 			stopAndWaitData(fd, currPacket, currPacketSize);
@@ -181,6 +181,8 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 	unsigned char * endPacket = prepareAppControlPacket(APP_CONTROL_END, fileSize, fileName, fileNameSize, &appControlPacketSize);
 
   stopAndWaitData(fd, endPacket, appControlPacketSize);
+
+	printf("[sendFile] File sent\n");
 
 	//free allocated memory (endPacket and fileData)
 	free(fileData);
@@ -222,6 +224,8 @@ unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, uns
 	controlPacket[6] = fileSize & 0xFF;
 	controlPacket[7] = APP_T_FILENAME;
 	controlPacket[8] = fileNameSize;
+
+	printf("[prepareAppControlPacket] fileNameSize: %i\n", fileNameSize);
 	
 	int i;
 	for (i = 0; i < fileNameSize; i++) {
@@ -240,6 +244,9 @@ unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int 
 	finalDataPacket[1] = (*numPackets) % 255;
 	finalDataPacket[2] = fileSize / 256;
 	finalDataPacket[3] = fileSize % 256;
+
+	printf("[prepareDataPacketHeader] filesize / 256: %i\n", fileSize / 256);
+	printf("[prepareDataPacketHeader] filesize %% 256: %i\n", fileSize % 256);
 
 	memcpy(finalDataPacket+4, data, (*packetSize)*sizeof(unsigned char));
 	(*packetSize) += 4;
@@ -275,7 +282,7 @@ unsigned char * splitData(unsigned char * fileData, int fileSize, int * currPos,
 
 
 //
-// Data link layer related functions
+// Data link layer functions
 //
 
 int sendControlMessage(int fd, unsigned char control) {
@@ -286,7 +293,7 @@ int sendControlMessage(int fd, unsigned char control) {
 	message[0] = FLAG;
 	message[1] = ADDRESS;
 	message[2] = control;
-	message[3] = message[1]^message[2];		// Parity of the message
+	message[3] = message[1]^message[2];		
 	message[4] = FLAG;
 
 	res = write(fd, message, 5);
@@ -294,7 +301,7 @@ int sendControlMessage(int fd, unsigned char control) {
 		return FALSE;
 	}
 	else{
-		printf("[sendControlMessage] Message sent: 0x%02x\n", message[2]);
+		//printf("[sendControlMessage] Message sent: 0x%02x\n", message[2]);
 		return TRUE;
 	}
 }
@@ -351,7 +358,7 @@ void stateMachine(unsigned char *message, int *state, unsigned char control){
         if(*message == FLAG){           /* Recebe o ultimo 7E */
             message_received = TRUE;
             alarm(0);
-            printf("[stateMachine] Received 0x%02x\n", control);
+            //printf("[stateMachine] Received 0x%02x\n", control);
         }
         else{                               /* Erro no 7E */
             *state = 0;
@@ -493,21 +500,20 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 	};
 
   if(alarm_counter < MAX_ALARM_COUNT) {
-		printf("changing packet\n");
 		switch(controlReceived[0]) {
 		case RR_0:
 			packetSign = C_0;
-			printf("rr0 new sign is %c\n", packetSign);
+			//printf("rr0 new sign is %c\n", packetSign);
 			return 0;
 		case RR_1:
 			packetSign = C_1;
-			printf("rr1 new sign is %c\n", packetSign);
+			//printf("rr1 new sign is %c\n", packetSign);
 			return 0;
 		case REJ_0:
-			printf("rej0\n");
+			//printf("rej0\n");
 			return 2;
 		case REJ_1:
-			printf("rej1\n");
+			//printf("rej1\n");
 			return 2;
 		}
 	} else {
@@ -525,10 +531,14 @@ int llopen(int fd){
 }
 
 int llclose(int fd) {
-	stopAndWaitControl(fd, CONTROL_DISC,CONTROL_DISC);
-	//if it doesnt respond to the disc signal, it shouldnt try to send the ua
-	sendControlMessage(fd, CONTROL_UA);
-  return 0; //shouldn't just be returning 0
+	if (stopAndWaitControl(fd, CONTROL_DISC,CONTROL_DISC)) {
+		return 1;
+	}
+	
+	if (sendControlMessage(fd, CONTROL_UA)) {
+		return 1;
+	}
+  return 0; 
 }
 
 /**
@@ -579,23 +589,22 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 
 	finalPacket = preparePacket(finalPacket, stuffedBCC2, &finalPacketSize, &stuffedBCC2Size); 
 
-	//
-  //sending packages of the file at once
-	//
-	/*
-	for(int i = 0; i < finalPacketSize; i++) {
-		printf("[llwrite] Final packet: 0x%02x\n", finalPacket[i]);
+	printf("[llwrite] Sending packet:\n");
+
+	int i;
+	for(i = 0; i < finalPacketSize; i++) {
+			printf("[llwrite] 0x%02x\n", finalPacket[i]);
 	}
-	*/
-	int num = write(fd, finalPacket, finalPacketSize);
-	printf("[llwrite] Sent %i bytes\n", num); 
 
 	//
-	//waiting for response from receiver
+  //sending packet
 	//
 	
+	write(fd, finalPacket, finalPacketSize);
+
 	free(stuffedBCC2);
 	free(finalPacket);
+
   return 0;
 }
 
@@ -678,7 +687,7 @@ unsigned char * preparePacket(unsigned char * buf, unsigned char * bcc2, int * f
 	header[2] = packetSign;
 	header[3] = header[1] ^ header[2];
 
-	printf("[preparePacket] Packet sign: 0x%02x\n", header[2]);
+	//printf("[preparePacket] Packet sign: 0x%02x\n", header[2]);
 
 	unsigned char trailer[1];
 	trailer[0] = FLAG;
