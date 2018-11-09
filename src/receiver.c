@@ -11,6 +11,10 @@ int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
 
+int numPackets = 0;
+int numRR = 0;	
+int numREJ = 0;
+
 //
 // ALARM HANDLER 
 //
@@ -61,24 +65,28 @@ int main(int argc, unsigned char** argv){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
   }
-	printf("waiting start\n");
+	//printf("waiting start\n");
   unsigned int startSize = readPacket(fd, start);
   start = changed;
-	printf("received start\n");
+	//printf("received start\n");
   if(getFileInfo(start) == -1){
     printf("File Size and File Name not in the correct order, first size, then name\n");
     return -1;
   }
-	printf("extracted info\n");
+	//printf("??????\n");
+	//printf("extracted info\n");
+	printf(":)\n");
   info.content = (unsigned char*)malloc(info.size * sizeof(unsigned char));
   if(info.content == NULL){
     printf("Tried to malloc, out of memory\n");
     exit(-1);
   }
 
-	printf("[main] startSize: %i\n", startSize);
+	//printf("[main] startSize: %i\n", startSize);
 
   readContent(fd, start, startSize);
+	
+	printf("Number of packets read: %i\nNumber of packets rejected: %i\nNumber of packets accepted: %i\n", numPackets, numREJ, numRR);
 
   createFile();
 
@@ -86,6 +94,9 @@ int main(int argc, unsigned char** argv){
   free(info.name);
   free(info.content);
   readControlMessage(fd, C_DISC);
+
+	//printf("[main] Received DISC\n");
+
   llClose(fd);
   return 0;
 }
@@ -114,7 +125,7 @@ int llOpen(int fd){
 
   tcflush(fd, TCIOFLUSH);
 
-  printf("New termios structure set\n");
+  //printf("New termios structure set\n");
 
   if (tcsetattr(fd, TCSANOW, &newtio) == -1) {
     perror("tcsetattr");
@@ -133,6 +144,8 @@ int llClose(int fd){
   writeControlMessage(fd, C_DISC);
 
   readControlMessage(fd, C_UA);
+
+	//printf("[llClose] Received UA\n");
 
   tcsetattr(fd, TCSANOW, &oldtio);
 
@@ -154,6 +167,9 @@ void readControlMessage(int fd, unsigned char control){
       while (complete == FALSE) {
         res = read(fd,buf,1);
         if(res > 0){
+
+					//printf("[readControlMessage] Received: 0x%02x\n", buf[0]);
+
           switch(state){
             case 0:
               if(buf[0] == FLAG){
@@ -166,8 +182,9 @@ void readControlMessage(int fd, unsigned char control){
               if(buf[0] != FLAG){
                 message[i] = buf[0];
                 i++;
-                if(i==4)
+                if(i==4) {
                   state++;
+								}
               } else {
                 i = 0;
                 state = 0;
@@ -387,15 +404,16 @@ unsigned int readPacket(int fd, unsigned char* buffer){
 
 		message_received = FALSE;	
 
-    packetSize = llread(fd, buffer);
+    packetSize = llread(fd, buffer);	
+		numPackets++;
     buffer = changed;
-		printf("got it\n");
+		//printf("got it\n");
   	packetSize = destuffing(buffer, packetSize);
     buffer = changed;
-		printf("destuffed\n");
+		//printf("destuffed\n");
     packetSize = checkBCC2(buffer, packetSize);
     buffer = changed;
-		printf("checked bcc2\n");
+		//printf("checked bcc2\n");
     if(packetSize != -1){
       if(packet == 0)
         writeControlMessage(fd, RR_C_1);
@@ -405,8 +423,10 @@ unsigned int readPacket(int fd, unsigned char* buffer){
 			message_received = TRUE;
 			alarm(0);
 
-      if (packet == expected)
+      if (packet == expected) {
+				numRR++;
         expected ^= 1;
+			}
       else
         packetSize = -1;
     } else {
@@ -417,14 +437,19 @@ unsigned int readPacket(int fd, unsigned char* buffer){
 				printf("[readPacket] Rejected packet\n");
         writeControlMessage(fd, REJ_C_0);
 			}
+
+			numREJ++;
+
     }
   } while(packetSize == -1);
 
-	printf("[readPacket] Packet read:\n");	
+	//printf("[readPacket] Packet read:\n");	
 
+	/*
 	for (int i = 0; i < packetSize; i++) {
 		printf("[readPacket] 0x%02x\n", buffer[i]);
 	}
+	*/
 
   return packetSize;
 }
@@ -458,7 +483,7 @@ int getFileInfo(unsigned char* start){
 
   octets = (unsigned int)*(next + 1);
 
-	printf("[getFileInfo] File name size: %i\n", (int) octets);
+	//printf("[getFileInfo] File name size: %i\n", (int) octets);
 
   unsigned char* name = (unsigned char*)malloc((octets+1) * sizeof(unsigned char));
   if(name == NULL){
@@ -473,7 +498,7 @@ int getFileInfo(unsigned char* start){
 
 	*(name + i) = '\0';
 
-	printf("[getFileInfo] File name: %s\n", name);
+	//printf("[getFileInfo] File name: %s\n", name);
 
   info.name = name;
 
@@ -505,15 +530,17 @@ unsigned int removeHeader(unsigned char* packet, unsigned int size){
   unsigned int newSize = size - 4;
   unsigned char *newPacket = (unsigned char*)malloc(newSize * sizeof(unsigned char));
 
-	printf("[removeHeader] size: %i\n", size);
+	//printf("[removeHeader] size: %i\n", size);
 
-	printf("[removeHeader] packet:\n");
+	//printf("[removeHeader] packet:\n");
 
+	/*
 	for (int i = 0; i < size; i++) {
 		printf("[removeHeader] 0x%02x\n", packet[i]);
 	}
+	*/
 
-	printf("[removeHeader] Past malloc\n");
+	//printf("[removeHeader] Past malloc\n");
 
   if(newPacket == NULL){
     printf("Tried to malloc, out of memory\n");
@@ -525,13 +552,13 @@ unsigned int removeHeader(unsigned char* packet, unsigned int size){
     *(newPacket + i) = *(packet + i + 4);
   }
 
-		printf("[removeHeader] Past read cycle\n");
+	//printf("[removeHeader] Past read cycle\n");
 
   changed = newPacket;
 
   free(packet);
 
-	printf("[removeHeader] Past free\n");
+	//printf("[removeHeader] Past free\n");
 
   return newSize;
 }
@@ -547,32 +574,47 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
 
   while(TRUE) {
 
+		//printf("AHHHHHHHHHH\n");
+
     packet = (unsigned char*)malloc(sizeof(unsigned char));
     if(packet == NULL){
       printf("Tried to malloc, out of memory\n");
       exit(-1);
     }
+					
+		//printf("BHHHHHHHHHH\n");
 
     packetSize = readPacket(fd, packet);
     packet = changed;
 
-		printf("[readContent] Calling isEndPacket\n");
+		//printf("CHHHHHHHHHH\n");
+
+		//printf("[readContent] Calling isEndPacket\n");
 
     if(isEndPacket(start, startSize, packet, packetSize)){
       break;
     }
 
-		printf("[readContent] Past isEndPacket\n");
+		//printf("DHHHHHHHHHH\n");
+
+		//printf("[readContent] Past isEndPacket\n");
 
     packetSize = removeHeader(packet, packetSize);
     packet = changed;
 
-		printf("[readContent] Past removeHeader\n");		
+		//printf("EHHHHHHHHHH\n");
+
+		//printf("[readContent] Past removeHeader\n");		
 
     memcpy(info.content + index, packet, packetSize);
     index += packetSize;
+	
+		//printf("FHHHHHHHHHH\n");
 
     free(packet);
+
+		//printf("GHHHHHHHHHH\n");		
+
   }
 
 	if (alarm_flag) {
@@ -585,6 +627,6 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
 void createFile(){
   FILE* file = fopen((unsigned char*)info.name, "wb+");
   fwrite((unsigned char*)info.content, sizeof(unsigned char), info.size, file);
-  printf("File created\n");
+  //printf("File created\n");
   fclose(file);
 }
