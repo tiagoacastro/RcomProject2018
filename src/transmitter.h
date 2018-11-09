@@ -7,10 +7,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 
 #define TIMEOUT         3
 
-#define BAUDRATE        B38400
+#define BAUDRATE_DEFAULT        B38400
 #define MODEMDEVICE     "/dev/ttyS1"
 #define _POSIX_SOURCE   1 /* POSIX compliant source */
 #define FALSE           0
@@ -48,7 +49,7 @@
 #define C_0							0x00
 #define C_1 						0x40
 
-#define PACKET_SIZE       255
+#define PACKET_SIZE_DEFAULT       255
 
 void set_alarm();
 void remove_alarm();

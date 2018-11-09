@@ -6,6 +6,12 @@ volatile int STOP = FALSE;
 int alarm_flag = FALSE;
 int alarm_counter = 0;
 int message_received = FALSE;
+int numPackets = 0;
+int numRR = 0;
+int numREJ = 0;
+int activeBaudrate = BAUDRATE_DEFAULT;
+int activePacketSize = PACKET_SIZE_DEFAULT;
+int testMode = FALSE;
 
 //
 // Alarm handler
@@ -41,6 +47,15 @@ int main(int argc, char** argv)
       exit(1);
     }
 
+		if (argc == 5) {
+			activeBaudrate = (int) strtol(argv[3], NULL, 10);
+			activePacketSize = (int) strtol(argv[4], NULL, 10);
+			testMode = TRUE;
+
+			printf("Test mode active\n**Current settings**\nBaudrate: %i\nPacket size: %i\n", activeBaudrate, activePacketSize);
+
+		}
+
   /*
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
@@ -50,7 +65,7 @@ int main(int argc, char** argv)
   fd = open(argv[1], O_RDWR | O_NOCTTY );
 	if (fd <0) {perror(argv[1]); exit(-1); }
 
-	printf("Serial port open\n");
+	//printf("Serial port open\n");
 
 	if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
     perror("tcgetattr");
@@ -58,7 +73,7 @@ int main(int argc, char** argv)
   }
 
   bzero(&newtio, sizeof(newtio));
-  newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+  newtio.c_cflag = activeBaudrate | CS8 | CLOCAL | CREAD;
   newtio.c_iflag = IGNPAR;
   newtio.c_oflag = 0;
 
@@ -93,6 +108,13 @@ int main(int argc, char** argv)
 	sigaction(SIGALRM, &sa, NULL);
 
 	//
+	//Timer for efficency test
+	//
+
+	struct timespec transmitionStart, transmitionEnd;
+	clock_gettime(CLOCK_REALTIME, &transmitionStart);
+
+	//
 	//llopen
 	//
 
@@ -106,7 +128,7 @@ int main(int argc, char** argv)
 	//send file
 	//
 
-	printf("[main] File name size: %i\n", (int) strlen(argv[2]));
+	//printf("[main] File name size: %i\n", (int) strlen(argv[2]));
 	sendFile(fd, (unsigned char *) argv[2], strlen(argv[2]));
 
 	//
@@ -114,6 +136,15 @@ int main(int argc, char** argv)
 	//
 
 	llclose(fd);
+
+	clock_gettime(CLOCK_REALTIME, &transmitionEnd);
+
+	double deltaTime = (transmitionEnd.tv_sec - transmitionStart.tv_sec) + (transmitionEnd.tv_nsec - transmitionStart.tv_nsec) / 1E9; 
+
+	if (testMode) {
+		printf("Number of packets sent: %i\nNumber of packets rejected: %i\nNumber of packets accepted: %i\n", numPackets, numREJ, numRR);
+		printf("Transmition time: %f\n", deltaTime);	
+	}	
 
   if (tcsetattr(fd,TCSANOW,&oldtio) == -1) {
     perror("tcsetattr");
@@ -136,6 +167,10 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
   int appControlPacketSize = 0;
   unsigned char * fileData = openFile(fileName, &fileSize);
 
+	if (testMode) {
+		printf("File size: %i bytes (%i bits)\n", fileSize, fileSize*8);
+	}
+
   //prepare and send start packet  
 
   unsigned char * startPacket = prepareAppControlPacket(APP_CONTROL_START, fileSize, fileName, fileNameSize, &appControlPacketSize);
@@ -149,7 +184,7 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
   //send the file
 
   int currPos = 0;
-  int currPacketSize = PACKET_SIZE;
+  int currPacketSize = activePacketSize;
   int numPackets = 0;
   unsigned char * currPacket;
 
@@ -172,7 +207,7 @@ int sendFile(int fd, unsigned char * fileName, int fileNameSize) {
 			stopAndWaitData(fd, currPacket, currPacketSize);
 		}
 		
-		currPacketSize = PACKET_SIZE;
+		currPacketSize = activePacketSize;
 		free(currPacket);
   }
 
@@ -225,7 +260,7 @@ unsigned char * prepareAppControlPacket(unsigned char control, int fileSize, uns
 	controlPacket[7] = APP_T_FILENAME;
 	controlPacket[8] = fileNameSize;
 
-	printf("[prepareAppControlPacket] fileNameSize: %i\n", fileNameSize);
+	//printf("[prepareAppControlPacket] fileNameSize: %i\n", fileNameSize);
 	
 	int i;
 	for (i = 0; i < fileNameSize; i++) {
@@ -245,8 +280,8 @@ unsigned char * prepareDataPacketHeader(unsigned char * data, int fileSize, int 
 	finalDataPacket[2] = fileSize / 256;
 	finalDataPacket[3] = fileSize % 256;
 
-	printf("[prepareDataPacketHeader] filesize / 256: %i\n", fileSize / 256);
-	printf("[prepareDataPacketHeader] filesize %% 256: %i\n", fileSize % 256);
+	//printf("[prepareDataPacketHeader] filesize / 256: %i\n", fileSize / 256);
+	//printf("[prepareDataPacketHeader] filesize %% 256: %i\n", fileSize % 256);
 
 	memcpy(finalDataPacket+4, data, (*packetSize)*sizeof(unsigned char));
 	(*packetSize) += 4;
@@ -265,7 +300,7 @@ unsigned char * splitData(unsigned char * fileData, int fileSize, int * currPos,
 		(*currPacketSize) = (fileSize - j);
 	}
 
-	printf("[splitData] currPacketSize: %i\n", (*currPacketSize));
+	//printf("[splitData] currPacketSize: %i\n", (*currPacketSize));
 
 	packet = (unsigned char *) malloc((*currPacketSize)*sizeof(unsigned char));
 	
@@ -503,16 +538,20 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
 		switch(controlReceived[0]) {
 		case RR_0:
 			packetSign = C_0;
+			numRR++;
 			//printf("rr0 new sign is %c\n", packetSign);
 			return 0;
 		case RR_1:
 			packetSign = C_1;
+			numRR++;
 			//printf("rr1 new sign is %c\n", packetSign);
 			return 0;
 		case REJ_0:
+			numREJ++;
 			//printf("rej0\n");
 			return 2;
 		case REJ_1:
+			numREJ++;
 			//printf("rej1\n");
 			return 2;
 		}
@@ -524,7 +563,6 @@ int stopAndWaitData(int fd, unsigned char * buffer, int length) {
   return 1;
 
 }
-
 
 int llopen(int fd){
 	return stopAndWaitControl(fd, CONTROL_SET,CONTROL_UA);
@@ -589,11 +627,11 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 
 	finalPacket = preparePacket(finalPacket, stuffedBCC2, &finalPacketSize, &stuffedBCC2Size); 
 
-	printf("[llwrite] Sending packet:\n");
+	//printf("[llwrite] Sending packet:\n");
 
 	int i;
 	for(i = 0; i < finalPacketSize; i++) {
-			printf("[llwrite] 0x%02x\n", finalPacket[i]);
+			//printf("[llwrite] 0x%02x\n", finalPacket[i]);
 	}
 
 	//
@@ -601,6 +639,8 @@ int llwrite(int fd, unsigned char * buffer, int length) {
 	//
 	
 	write(fd, finalPacket, finalPacketSize);
+
+	numPackets++;
 
 	free(stuffedBCC2);
 	free(finalPacket);
