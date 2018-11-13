@@ -7,10 +7,6 @@ int expected = 0;
 struct FileInfo info;
 unsigned char* changed;
 
-int alarm_flag = FALSE;
-int alarm_counter = 0;
-int message_received = FALSE;
-
 int numPackets = 0;
 int numRR = 0;	
 int numREJ = 0;
@@ -40,7 +36,7 @@ int main(int argc, unsigned char** argv){
     exit(-1);
   }
 
-  unsigned int startSize = readPacket(fd, start);
+  unsigned int startSize = llread(fd, start);
   start = changed;
   if(getFileInfo(start) == -1){
     printf("File Size and File Name not in the correct order, first size, then name\n");
@@ -194,98 +190,6 @@ void writeControlMessage(int fd, unsigned char control){
   write(fd, message, 5);
 }
 
-unsigned int llread(int fd, unsigned char* buffer){
-  unsigned int stop = FALSE;
-  unsigned int state = 0;
-  unsigned char buf, c;
-	unsigned int packetSize = 0;
-  unsigned int res = 0;
-  unsigned int disc = FALSE;
-
-  packet = -1;
-
-  while(!stop){
-  	res = read(fd, &buf, 1);
-    if(res > 0){
-    	switch(state){
-    		case 0: // start
-    			if(buf == FLAG)
-    				state++;
-    			break;
-    		case 1: // address
-          disc = FALSE;
-    			if(buf == A)
-    				state++;
-    			else
-    				if(buf != FLAG)
-    					state = 0;
-    			break;
-    		case 2: // control
-          switch(buf){
-            case C_0:
-              packet = 0;
-              c = buf;
-        			state++;
-              break;
-            case C_1:
-              packet = 1;
-              c = buf;
-          		state++;
-              break;
-            case C_DISC:
-              c = buf;
-              state++;
-              disc = TRUE;
-              break;
-            case FLAG:
-              state = 1;
-              break;
-            default:
-              state = 0;
-              break;
-          }
-    			break;
-    		case 3: // bcc1
-    			if (buf == (A ^ c)){
-            if(disc){
-              state = 5;
-              disc = FALSE;
-            } else
-    				  state++;
-    			} else
-    				if(buf == FLAG)
-    					state = 1;
-    				else
-    					state = 0;
-    			break;
-    		case 4: //data
-    			if (buf == FLAG) {
-    				stop = TRUE;
-    			} else {
-    				packetSize++;
-    				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
-            if(buffer == NULL){
-              printf("Tried to realloc, out of memory\n");
-              exit(-1);
-            }
-    				*(buffer + packetSize - 1) = buf;
-    			}
-          break;
-        case 5: //disc
-          if (buf == FLAG) {
-    				llClose(fd);
-            exit(0);
-    			} else
-            state = 0;
-          break;
-    		}}
-  }
-
-  changed = buffer;
-
-	return packetSize;
-}
-
 int destuffing(unsigned char* buffer, unsigned int packetSize){
 	unsigned char buf, buf2;
 	unsigned char * buffer2 = (unsigned char*)malloc(packetSize * sizeof(unsigned char));
@@ -350,16 +254,97 @@ int checkBCC2(unsigned char* buffer, unsigned int packetSize){
   return -1;
 }
 
-unsigned int readPacket(int fd, unsigned char* buffer){
-  int packetSize;
+unsigned int llread(int fd, unsigned char* buffer){
+	unsigned int stop = FALSE;
+  unsigned int state = 0;
+  unsigned char buf, c;
+	unsigned int packetSize = 0;
+  unsigned int res = 0;
+  unsigned int disc = FALSE;
+	packet = -1;
 
   do {
 
 		message_received = FALSE;	
 
-    packetSize = llread(fd, buffer);	
+		while(!stop){
+			res = read(fd, &buf, 1);
+		  if(res > 0){
+		  	switch(state){
+		  		case 0: // start
+		  			if(buf == FLAG)
+		  				state++;
+		  			break;
+		  		case 1: // address
+		        disc = FALSE;
+		  			if(buf == A)
+		  				state++;
+		  			else
+		  				if(buf != FLAG)
+		  					state = 0;
+		  			break;
+		  		case 2: // control
+		        switch(buf){
+		          case C_0:
+		            packet = 0;
+		            c = buf;
+		      			state++;
+		            break;
+		          case C_1:
+		            packet = 1;
+		            c = buf;
+		        		state++;
+		            break;
+		          case C_DISC:
+		            c = buf;
+		            state++;
+		            disc = TRUE;
+		            break;
+		          case FLAG:
+		            state = 1;
+		            break;
+		          default:
+		            state = 0;
+		            break;
+		        }
+		  			break;
+		  		case 3: // bcc1
+		  			if (buf == (A ^ c)){
+		          if(disc){
+		            state = 5;
+		            disc = FALSE;
+		          } else
+		  				  state++;
+		  			} else
+		  				if(buf == FLAG)
+		  					state = 1;
+		  				else
+		  					state = 0;
+		  			break;
+		  		case 4: //data
+		  			if (buf == FLAG) {
+		  				stop = TRUE;
+		  			} else {
+		  				packetSize++;
+		  				buffer = (unsigned char *) realloc(buffer, packetSize * sizeof(unsigned char));
+		          if(buffer == NULL){
+		            printf("Tried to realloc, out of memory\n");
+		            exit(-1);
+		          }
+		  				*(buffer + packetSize - 1) = buf;
+		  			}
+		        break;
+		      case 5: //disc
+		        if (buf == FLAG) {
+		  				llClose(fd);
+		          exit(0);
+		  			} else
+		          state = 0;
+		        break;
+		  		}}
+		}
+
 		numPackets++;
-    buffer = changed;
   	packetSize = destuffing(buffer, packetSize);
     buffer = changed;
     packetSize = checkBCC2(buffer, packetSize);
@@ -491,7 +476,7 @@ void readContent(int fd, unsigned char* start, unsigned int startSize){
       exit(-1);
     }
 
-    packetSize = readPacket(fd, packet);
+    packetSize = llread(fd, packet);
     packet = changed;
 
     if(isEndPacket(start, startSize, packet, packetSize)){
