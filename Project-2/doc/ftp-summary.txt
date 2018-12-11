@@ -1,0 +1,19 @@
+FTP may run in active or passive mode, which determines how the data connection is established.
+In both cases, the client creates a TCP control connection from a random, usually an unprivileged, 
+port N to the FTP server command port 21.
+
+In active mode, the client starts listening for incoming data connections from the server on port M. 
+It sends the FTP command PORT M to inform the server on which port it is listening. 
+The server then initiates a data channel to the client from its port 20, the FTP server data port.
+
+In situations where the client is behind a firewall and unable to accept incoming TCP connections, 
+passive mode may be used. In this mode, the client uses the control connection to send a PASV command 
+to the server and then receives a server IP address and server port number from the server,
+which the client then uses to open a data connection from an arbitrary client port to the server IP 
+address and server port number received.
+
+The server responds over the control connection with three-digit status codes in ASCII 
+with an optional text message. For example, "200" (or "200 OK") means that the last command was successful.
+The numbers represent the code for the response and the optional text represents a human-readable explanation 
+or request (e.g. <Need account for storing file>).An ongoing transfer of file data over the data connection 
+can be aborted using an interrupt message sent over the control connection.
