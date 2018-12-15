@@ -154,7 +154,8 @@ void parseFile(char* path, char* file) {
 	}
 }
 
-int readCmdReply(int socketfd, char * reply) {
+int readCmdReply(int socketfd) {
+	char * reply;
 	memset(reply, 0, MAX_LINE_LENGTH);
 	
 	while(!(reply[0] >= '1' && reply[0] <= '5') || reply[3] != ' ') {
@@ -164,6 +165,36 @@ int readCmdReply(int socketfd, char * reply) {
 	int returnValue;
 	char code[2] = {reply[0], '\0'};
 	sscanf(reply, "%d", &returnValue);
+	free(reply);
 	return returnValue;
-	
+}
+
+int send(int socketfd, char * toSend) {
+	int bytes;
+	bytes = write(socketfd, toSend, strlen(toSend));
+	return bytes;
+}
+
+int login(int socketfd, char * user, char * pass) {
+	char userCmd[MAX_LINE_SIZE];
+	char passCmd[MAX_LINE_SIZE];
+
+	sprintf(userCmd, "USER %s\n", user); // \r ???
+	send(socketfd, userCmd);
+	int userReply = readCmdReply(socketfd);
+	if (userReply >= 4) {
+		printf("Error sending username\n");
+		return 1;
+	}
+
+	spritnf(passCmd, "PASS %s\n", pass); //same thing ??? 
+	send(socketfd, passCmd);
+	int passReply = readCmdReply(socketfd);
+	if(passReply >= 4) {
+		printf("Error sending password\n");
+		return 1;
+	}
+
+	return 0;
+
 }
