@@ -1,22 +1,31 @@
-#include <stdio.h>
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <errno.h> 
+#include <netdb.h> 
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#include <netinet/in.h> 
 #include <arpa/inet.h>
-#include <stdlib.h>
+#include <sys/socket.h>
 #include <unistd.h>
 #include <signal.h>
-#include <netdb.h>
 #include <strings.h>
+#include <string.h>
 
-#define SERVER_PORT 				21
-#define SERVER_ADDR 				"192.168.28.96"
+#define SERVER_PORT 21
+#define SERVER_ADDR "192.168.28.96"
 #define MAX_STRING_LENGTH		64
 
+int openTCPPort(struct sockaddr_in * server_addr);
+struct hostent * getIp(char* address);
+void parseInfo(char* info, char* user, char* password, char* host, char* path);
+void parseFile(char* path, char* file);
+int readCmdReply(int socketfd, char * reply); 
+
 int main(int argc, char** argv) {
+
 	int	sockfd;
 	struct	sockaddr_in server_addr;
-	struct hostent *h;
+	struct hostent * h;
 
 	char user[MAX_STRING_LENGTH];
 	char password[MAX_STRING_LENGTH];
@@ -25,13 +34,44 @@ int main(int argc, char** argv) {
 
 	parseInfo(argv[1], user, password, host, path);
 
+	printf("Username: %s\n", user);
+	printf("Password: %s\n", password);
+	printf("Host: %s\n", host);
+	printf("Path: %s\n", path);
+
 	char file[MAX_STRING_LENGTH];
 
 	parseFile(path, file);
 
-	h = getip(host);
+	if ((h=gethostbyname(argv[1])) == NULL) {  
+    herror("gethostbyname");
+    exit(1);
+  }
 
-	sockfd = openTCPPort(server_addr);
+	printf("Host name  : %s\n", h->h_name);
+  printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+
+	/*server address handling*/
+	bzero((char*)&server_addr,sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);	/*32 bit Internet address network byte ordered*/
+	server_addr.sin_port = htons(SERVER_PORT);		/*server TCP port must be network byte ordered */
+    
+	/*open an TCP socket*/
+	if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
+		perror("socket()");
+    exit(0);
+	}
+
+	/*connect to the server*/
+	if(connect(sockfd, 
+    				(struct sockaddr *)&server_addr, 
+   					sizeof(server_addr)) < 0){
+    perror("connect()");
+		exit(0);
+	}
+
+	//readResponse();
 
 	//continue here
 
@@ -39,45 +79,8 @@ int main(int argc, char** argv) {
   return 0;
 }
 
-int openTCPPort(struct	sockaddr_in server_addr) {
-  /*server address handling*/
-	bzero((char*)&server_addr,sizeof(server_addr));
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);	/*32 bit Internet address network byte ordered*/
-	server_addr.sin_port = htons(SERVER_PORT);		/*server TCP port must be network byte ordered */
-    
-	/*open a TCP socket*/
-	if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
-    		perror("socket()");
-        	exit(0);
-  }
 
-	/*connect to the server*/
-  if(connect(sockfd, 
-            (struct sockaddr *)&server_addr, 
-            sizeof(server_addr)) < 0) {
-    perror("connect()");
-    exit(0);
-	}
-
-  return sockfd;
-}
-
-void getIp(char* address) {
-
-  struct hostent* h;             
-  if ((h=gethostbyname(address)) == NULL) {  
-    herror("gethostbyname");
-    exit(1);
-  }
-
-  printf("Host name  : %s\n", h->h_name);
-  printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
-
-  return h;
-}
-
-void parseInfo(char* info, char* user, char* password, char* host, char* path){
+void parseInfo(char* info, char* user, char* password, char* host, char* path) {
 	unsigned int i = 6;
 	unsigned int j = 0;
 	unsigned int length = strlen(info);
@@ -130,7 +133,7 @@ void parseInfo(char* info, char* user, char* password, char* host, char* path){
 	}
 }
 
-void parseFile(char* path, char* file){
+void parseFile(char* path, char* file) {
 	unsigned int length = strlen(path);
 	unsigned int i = 0;
 	unsigned int j = 0;
@@ -149,4 +152,18 @@ void parseFile(char* path, char* file){
 		}
 		i++;
 	}
+}
+
+int readCmdReply(int socketfd, char * reply) {
+	memset(reply, 0, MAX_LINE_LENGTH);
+	
+	while(!(reply[0] >= '1' && reply[0] <= '5') || reply[3] != ' ') {
+		read(socketfd, reply, MAX_LINE_LENGTH);
+	}	
+
+	int returnValue;
+	char code[2] = {reply[0], '\0'};
+	sscanf(reply, "%d", &returnValue);
+	return returnValue;
+	
 }
