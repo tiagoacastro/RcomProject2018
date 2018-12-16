@@ -1,28 +1,25 @@
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <errno.h> 
-#include <netdb.h> 
-#include <sys/types.h>
-#include <netinet/in.h> 
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <signal.h>
-#include <strings.h>
 #include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <strings.h>
 
-#define SERVER_PORT 21
-#define SERVER_ADDR "192.168.28.96"
+#define SERVER_PORT 			21
+#define SERVER_ADDR 			"192.168.28.96"
 #define MAX_STRING_LENGTH		64
 
-int openTCPPort(struct sockaddr_in * server_addr);
-struct hostent * getIp(char* address);
 void parseInfo(char* info, char* user, char* password, char* host, char* path);
 void parseFile(char* path, char* file);
-int readCmdReply(int socketfd, char * reply); 
+int readCmdReply(int socketfd); 
+int sendMsg(int socketfd, char* toSend);
+int login(int socketfd, char* user, char* pass);
 
 int main(int argc, char** argv) {
-
 	int	sockfd;
 	struct	sockaddr_in server_addr;
 	struct hostent * h;
@@ -43,13 +40,15 @@ int main(int argc, char** argv) {
 
 	parseFile(path, file);
 
+	printf(" - Filename: %s\n", file);
+
 	if ((h=gethostbyname(argv[1])) == NULL) {  
-    herror("gethostbyname");
-    exit(1);
-  }
+		herror("gethostbyname");
+		exit(1);
+  	}
 
 	printf("Host name  : %s\n", h->h_name);
-  printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+  	printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
 
 	/*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
@@ -155,32 +154,32 @@ void parseFile(char* path, char* file) {
 }
 
 int readCmdReply(int socketfd) {
-	char * reply;
-	memset(reply, 0, MAX_LINE_LENGTH);
+	char reply[MAX_STRING_LENGTH]; 
+  	memset(reply, 0, MAX_STRING_LENGTH); 
 	
 	while(!(reply[0] >= '1' && reply[0] <= '5') || reply[3] != ' ') {
-		read(socketfd, reply, MAX_LINE_LENGTH);
+		read(socketfd, reply, MAX_STRING_LENGTH);
 	}	
 
 	int returnValue;
-	char code[2] = {reply[0], '\0'};
+	//char code[2] = {reply[0], '\0'}; 				was not being used to i commented it
 	sscanf(reply, "%d", &returnValue);
-	free(reply);
 	return returnValue;
 }
 
-int send(int socketfd, char * toSend) {
+int sendMsg(int socketfd, char* toSend) {
 	int bytes;
 	bytes = write(socketfd, toSend, strlen(toSend));
 	return bytes;
 }
 
-int login(int socketfd, char * user, char * pass) {
-	char userCmd[MAX_LINE_SIZE];
-	char passCmd[MAX_LINE_SIZE];
+int login(int socketfd, char* user, char* pass) {
+	/*
+	char userCmd[MAX_STRING_LENGTH];
+	char passCmd[MAX_STRING_LENGTH];
 
 	sprintf(userCmd, "USER %s\n", user); // \r ???
-	send(socketfd, userCmd);
+	sendMsg(socketfd, userCmd);
 	int userReply = readCmdReply(socketfd);
 	if (userReply >= 4) {
 		printf("Error sending username\n");
@@ -188,13 +187,12 @@ int login(int socketfd, char * user, char * pass) {
 	}
 
 	spritnf(passCmd, "PASS %s\n", pass); //same thing ??? 
-	send(socketfd, passCmd);
+	sendMsg(socketfd, passCmd);
 	int passReply = readCmdReply(socketfd);
 	if(passReply >= 4) {
 		printf("Error sending password\n");
 		return 1;
 	}
-
+	*/
 	return 0;
-
 }
