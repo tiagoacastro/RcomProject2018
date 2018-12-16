@@ -59,7 +59,7 @@ int main(int argc, char** argv) {
 	/*open an TCP socket*/
 	if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
 		perror("socket()");
-    exit(0);
+    exit(0); 
 	}
 
 	/*connect to the server*/
