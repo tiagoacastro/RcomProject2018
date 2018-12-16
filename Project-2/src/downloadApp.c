@@ -40,9 +40,9 @@ int main(int argc, char** argv) {
 
 	parseFile(path, file);
 
-	printf(" - Filename: %s\n", file);
+	printf("Filename: %s\n", file);
 
-	if ((h=gethostbyname(argv[1])) == NULL) {  
+	if ((h=gethostbyname(host)) == NULL) {  
 		herror("gethostbyname");
 		exit(1);
   	}
