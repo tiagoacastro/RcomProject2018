@@ -264,3 +264,29 @@ int login(int sockfd, char* user, char* pass) {
   
   return 0;
 }
+
+int download(int sockfd, char * filename) {
+	FILE * file;
+	int bytes;
+
+	if (!(file = fopen(filename, "w"))) {
+		printf("Cannot open file.\n");
+		return 1;
+	}
+
+	char buf[MAX_STRING_LENGTH];
+	while ((bytes = read(sockfd, buf, sizeof(buf)))) {
+		if (bytes < 0) {
+			printf("No data received from socket\n");
+			return 1;
+		}
+
+		if ((bytes = fwrite(buf, bytes, 1, file)) < 0) {
+			printf("Cannot write data in file\n");
+			return 1;
+		}
+	}
+
+	fclose(file);
+	return 0;
+}
