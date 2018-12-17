@@ -20,8 +20,8 @@ int sendMsg(int socketfd, char* toSend);
 int login(int socketfd, char* user, char* pass);
 
 int main(int argc, char** argv) {
-	int	sockfd;
-	struct	sockaddr_in server_addr;
+	int	sockfd, sockfd_download;
+	struct	sockaddr_in server_addr, server_addr_download;
 	struct hostent * h;
 
 	char user[MAX_STRING_LENGTH];
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 	/*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);	/*32 bit Internet address network byte ordered*/
+	server_addr.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));	/*32 bit Internet address network byte ordered*/
 	server_addr.sin_port = htons(SERVER_PORT);		/*server TCP port must be network byte ordered */
     
 	/*open an TCP socket*/
@@ -69,13 +69,55 @@ int main(int argc, char** argv) {
     perror("connect()");
 		exit(0);
 	}
+	
+	//ver se a ligacao foi estabelecida com sucesso (done)
+	if (readCmdReply() != 2) {
+		printf("Error establishing connection\n");
+		exit(1);
+	}
 
-	//readResponse();
+	//login (done)
+	if (login(sockfd, user, password)) {
+		printf("Error login\n");
+		exit(1);
+	}
 
-	//continue here
+	//por em modo pasv (todo facil)
+	sendMsg(sockfd, "PASV\n");
 
+	//ler a porta enviada pelo servidor (todo)
+	//...
+	int serverPort;
+
+	//abrir porta (copy pasta)
+	/*server address handling*/
+	bzero((char*)&server_addr_download,sizeof(server_addr_dowload));
+	server_addr_download.sin_family = AF_INET;
+	server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));	/*32 bit Internet address network byte ordered*/
+	server_addr_download.sin_port = htons(serverPort);		/*server TCP port must be network byte ordered */
+    
+	/*open an TCP socket*/
+	if ((sockfd_download = socket(AF_INET,SOCK_STREAM,0)) < 0) {
+		perror("socket()");
+    exit(0); 
+	}
+
+	/*connect to the server*/
+	if(connect(sockfd_download, 
+    				(struct sockaddr *)&server_addr_download, 
+   					sizeof(server_addr_download)) < 0){
+    perror("connect()");
+		exit(0);
+	}
+
+
+	//fazer download (todo nao tao facil)
+
+	//fechar portas (ez)
 	close(sockfd);
-  return 0;
+	close(sockfd_download);
+	
+  	return 0;
 }
 
 
@@ -162,8 +204,8 @@ int readCmdReply(int socketfd) {
 	}	
 
 	int returnValue;
-	//char code[2] = {reply[0], '\0'}; 				was not being used to i commented it
-	sscanf(reply, "%d", &returnValue);
+	char code[2] = {reply[0], '\0'};
+	sscanf(code, "%d", &returnValue);
 	return returnValue;
 }
 
@@ -174,7 +216,7 @@ int sendMsg(int socketfd, char* toSend) {
 }
 
 int login(int socketfd, char* user, char* pass) {
-	/*
+	
 	char userCmd[MAX_STRING_LENGTH];
 	char passCmd[MAX_STRING_LENGTH];
 
@@ -193,6 +235,7 @@ int login(int socketfd, char* user, char* pass) {
 		printf("Error sending password\n");
 		return 1;
 	}
-	*/
+	
 	return 0;
 }
+
