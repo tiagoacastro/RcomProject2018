@@ -15,11 +15,9 @@
  
 void parseInfo(char* info, char* user, char* password, char* host, char* path);
 void parseFile(char* path, char* file);
-int readCmdReply(int sockfd); 
 int sendMsg(int sockfd, char* toSend);
 int login(int sockfd, char* user, char* pass);
 int download(int controlSockfd, int downloadSockfd, char * path, char * filename); 
-
 int socketRead(int sockfd, char * reply);
  
 int main(int argc, char** argv) {
@@ -41,7 +39,7 @@ int main(int argc, char** argv) {
   parseInfo(argv[1], user, password, host, path);
  
   printf(">Username: %s\n", user);
-  printf(">Password: %s\n", password);
+  printf(">Password: %s\n\n", password);
   printf(">Host: %s\n", host);
   printf(">Path: %s\n", path);
 
@@ -49,7 +47,7 @@ int main(int argc, char** argv) {
  
   parseFile(path, file);
  
-  printf(">Filename: %s\n", file);
+  printf(">Filename: %s\n\n", file);
  
   //get host info
   if ((h=gethostbyname(host)) == NULL) {  
@@ -58,7 +56,7 @@ int main(int argc, char** argv) {
     }
  
   printf(">Host name  : %s\n", h->h_name);
-  printf(">IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+  printf(">IP Address : %s\n\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
  
   //server address handling
   bzero((char*)&server_addr,sizeof(server_addr));
@@ -112,8 +110,8 @@ int main(int argc, char** argv) {
 
   serverPort = port1 * 256 + port2;
 
-  printf("Passive IP: %s\n", passive);
-  printf("Passive PORT: %d\n", serverPort);
+  printf(">Passive IP: %s\n", passive);
+  printf(">Passive PORT: %d\n", serverPort);
  
   //open port
   bzero((char*)&server_addr_download,sizeof(server_addr_download));
@@ -256,7 +254,6 @@ int sendMsg(int sockfd, char* toSend) {
 }
 
 int login(int sockfd, char* user, char* pass) {
-  
   char userCmd[MAX_STRING_LENGTH];
   char passCmd[MAX_STRING_LENGTH];
  
