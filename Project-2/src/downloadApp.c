@@ -18,6 +18,8 @@ void parseFile(char* path, char* file);
 int readCmdReply(int sockfd); 
 int sendMsg(int sockfd, char* toSend);
 int login(int sockfd, char* user, char* pass);
+
+int socketRead(int sockfd, char * reply);
  
 int main(int argc, char** argv) {
   int  sockfd, sockfd_download;
@@ -76,7 +78,7 @@ int main(int argc, char** argv) {
   }
   
   //ver se a ligacao foi estabelecida com sucesso (done)
-  if (readCmdReply(sockfd) != 2) {
+  if (socketRead(sockfd, NULL) != 2) {
     printf("Error establishing connection\n");
     exit(1);
   }
@@ -87,6 +89,7 @@ int main(int argc, char** argv) {
     exit(1);
   }
  
+/*
   //por em modo pasv (todo facil)
   sendMsg(sockfd, "PASV\n");
  
@@ -113,32 +116,29 @@ int main(int argc, char** argv) {
   printf("Passive PORT: %d\n", serverPort);
  
   //abrir porta (copy pasta)
-  /*server address handling*/
   bzero((char*)&server_addr_download,sizeof(server_addr_download));
   server_addr_download.sin_family = AF_INET;
-  server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));  /*32 bit Internet address network byte ordered*/
-  server_addr_download.sin_port = htons(serverPort);    /*server TCP port must be network byte ordered */
+  server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));  
+  server_addr_download.sin_port = htons(serverPort);    
 
-  /*open an TCP socket*/
   if ((sockfd_download = socket(AF_INET,SOCK_STREAM,0)) < 0) {
     perror("socket()");
     exit(0); 
   }
  
-  /*connect to the server*/
   if(connect(sockfd_download, (struct sockaddr *)&server_addr_download, sizeof(server_addr_download)) < 0){
     perror("connect()");
     exit(0);
   }
  
- 
   //fazer download (todo nao tao facil)
  
   //fechar portas (ez)
-  close(sockfd);
   close(sockfd_download);
+*/
+  close(sockfd);
  
-    return 0;
+  return 0;
 }
  
  
@@ -216,30 +216,31 @@ void parseFile(char* path, char* file) {
   }
 }	
 
-int readCmdReply(int sockfd) {
-  char reply[MAX_STRING_LENGTH]; 
-    memset(reply, 0, MAX_STRING_LENGTH); 
-  
-  while(!(reply[0] >= '1' && reply[0] <= '5') || reply[3] != ' ') {
-    read(sockfd, reply, MAX_STRING_LENGTH);
-  }  
- 
+
+int socketRead(int sockfd, char* reply){
+  FILE* fp = fdopen(sockfd, "r");
+  int allocated = 0;
+
+  if(reply == NULL){
+    reply = (char*) malloc(sizeof(char) * MAX_STRING_LENGTH);
+    allocated = 1;
+  }
+
+  do {
+    memset(reply, 0, MAX_STRING_LENGTH);
+    reply = fgets(reply, MAX_STRING_LENGTH, fp);
+    printf(">%s", reply);
+  } while (!('1' <= reply[0] && reply[0] <= '5') || reply[3] != ' ');
+
   int returnValue;
   char code[2] = {reply[0], '\0'};
   sscanf(code, "%d", &returnValue);
-  return returnValue;
-}
- 
-int readReply(int sockfd, char * returnMsg) {
- 
-  while(!(returnMsg[0] >= '1' && returnMsg[0] <= '5') || returnMsg[3] != ' ') {
-    read(sockfd, returnMsg, MAX_STRING_LENGTH);
-  }  
- 
-  int returnValue;
-  char code[2] = {returnMsg[0], '\0'};
-  sscanf(code, "%d", &returnValue);
-  return returnValue;
+
+  if(allocated)
+    free(reply);
+
+	return returnValue;
+
 }
  
 int sendMsg(int sockfd, char* toSend) {
@@ -255,15 +256,15 @@ int login(int sockfd, char* user, char* pass) {
  
   sprintf(userCmd, "USER %s\n", user); // \r ???
   sendMsg(sockfd, userCmd);
-  int userReply = readCmdReply(sockfd);
+  int userReply = socketRead(sockfd, NULL);
   if (userReply >= 4) {
     printf("Error sending username\n");
     return 1;
   }
  
-  spritnf(passCmd, "PASS %s\n", pass); //same thing ??? 
+  sprintf(passCmd, "PASS %s\n", pass); //same thing ??? 
   sendMsg(sockfd, passCmd);
-  int passReply = readCmdReply(sockfd);
+  int passReply = socketRead(sockfd, NULL);
   if(passReply >= 4) {
     printf("Error sending password\n");
     return 1;
