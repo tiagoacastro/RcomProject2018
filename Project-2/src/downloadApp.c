@@ -29,6 +29,11 @@ int main(int argc, char** argv) {
 	char host[MAX_STRING_LENGTH];
 	char path[MAX_STRING_LENGTH];
 
+	if (argc != 2) {
+		printf("Wrong num of arguments\n");
+		exit(1);
+	}
+
 	parseInfo(argv[1], user, password, host, path);
 
 	printf("Username: %s\n", user);
@@ -116,7 +121,7 @@ int main(int argc, char** argv) {
 	//fechar portas (ez)
 	close(sockfd);
 	close(sockfd_download);
-	
+
   	return 0;
 }
 
