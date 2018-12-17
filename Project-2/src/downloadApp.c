@@ -18,6 +18,7 @@ void parseFile(char* path, char* file);
 int readCmdReply(int sockfd); 
 int sendMsg(int sockfd, char* toSend);
 int login(int sockfd, char* user, char* pass);
+int download(int controlSockfd, int downloadSockfd, char * filename); 
 
 int socketRead(int sockfd, char * reply);
  
@@ -38,24 +39,24 @@ int main(int argc, char** argv) {
  
   parseInfo(argv[1], user, password, host, path);
  
-  printf("Username: %s\n", user);
-  printf("Password: %s\n", password);
-  printf("Host: %s\n", host);
-  printf("Path: %s\n", path);
+  printf(">Username: %s\n", user);
+  printf(">Password: %s\n", password);
+  printf(">Host: %s\n", host);
+  printf(">Path: %s\n", path);
 
  char file[MAX_STRING_LENGTH];
  
   parseFile(path, file);
  
-  printf("Filename: %s\n", file);
+  printf(">Filename: %s\n", file);
  
   if ((h=gethostbyname(host)) == NULL) {  
     herror("gethostbyname");
     exit(1);
     }
  
-  printf("Host name  : %s\n", h->h_name);
-    printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+  printf(">Host name  : %s\n", h->h_name);
+    printf(">IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
  
   /*server address handling*/
   bzero((char*)&server_addr,sizeof(server_addr));
@@ -97,7 +98,7 @@ int main(int argc, char** argv) {
   char passive[MAX_STRING_LENGTH];
   socketRead(sockfd, passive);
 
-/* 
+
   //227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
   int ip1, ip2, ip3, ip4, port1, port2;
   if ((sscanf(passive, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0){
@@ -132,10 +133,10 @@ int main(int argc, char** argv) {
   }
  
   //fazer download (todo nao tao facil)
+  download(sockfd, sockfd_download, file);
  
   //fechar portas (ez)
   close(sockfd_download);
-*/
   close(sockfd);
  
   return 0;
@@ -273,9 +274,18 @@ int login(int sockfd, char* user, char* pass) {
   return 0;
 }
 
-int download(int sockfd, char * filename) {
+int download(int controlSockfd, int downloadSockfd, char * filename) {
 	FILE * file;
 	int bytes;
+  char retrCmd[MAX_STRING_LENGTH];
+ 
+  sprintf(retrCmd, "RETR %s\n", filename); 
+  sendMsg(controlSockfd, retrCmd);
+  int retrReply = socketRead(controlSockfd, NULL);
+  if (retrReply >= 4) {
+    printf("Error sending retrieve command\n");
+    return 1;
+  }
 
 	if (!(file = fopen(filename, "w"))) {
 		printf("Cannot open file.\n");
@@ -283,7 +293,7 @@ int download(int sockfd, char * filename) {
 	}
 
 	char buf[MAX_STRING_LENGTH];
-	while ((bytes = read(sockfd, buf, sizeof(buf)))) {
+	while ((bytes = read(downloadSockfd, buf, sizeof(buf)))) {
 		if (bytes < 0) {
 			printf("No data received from socket\n");
 			return 1;
