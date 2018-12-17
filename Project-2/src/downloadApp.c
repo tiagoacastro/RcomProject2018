@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 	}
 	
 	//ver se a ligacao foi estabelecida com sucesso (done)
-	if (readCmdReply() != 2) {
+	if (readCmdReply(sockfd) != 2) {
 		printf("Error establishing connection\n");
 		exit(1);
 	}
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
 
 	//abrir porta (copy pasta)
 	/*server address handling*/
-	bzero((char*)&server_addr_download,sizeof(server_addr_dowload));
+	bzero((char*)&server_addr_download,sizeof(server_addr_download));
 	server_addr_download.sin_family = AF_INET;
 	server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));	/*32 bit Internet address network byte ordered*/
 	server_addr_download.sin_port = htons(serverPort);		/*server TCP port must be network byte ordered */
