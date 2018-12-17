@@ -209,12 +209,7 @@ void parseFile(char* path, char* file) {
 	}
 }
 
-<<<<<<< HEAD
-int readCmdReply(int socketfd) {
-
-=======
 int readCmdReply(int sockfd) {
->>>>>>> ee0d2bbc36226470fcd97e010703d73075febf2c
 	char reply[MAX_STRING_LENGTH]; 
   	memset(reply, 0, MAX_STRING_LENGTH); 
 	
@@ -228,11 +223,10 @@ int readCmdReply(int sockfd) {
 	return returnValue;
 }
 
-<<<<<<< HEAD
-int readReply(int socketfd, char * returnMsg) {
+int readReply(int sockfd, char * returnMsg) {
 
 	while(!(returnMsg[0] >= '1' && returnMsg[0] <= '5') || returnMsg[3] != ' ') {
-		read(socketfd, returnMsg, MAX_STRING_LENGTH);
+		read(sockfd, returnMsg, MAX_STRING_LENGTH);
 	}	
 
 	int returnValue;
@@ -241,10 +235,7 @@ int readReply(int socketfd, char * returnMsg) {
 	return returnValue;
 }
 
-int sendMsg(int socketfd, char* toSend) {
-=======
 int sendMsg(int sockfd, char* toSend) {
->>>>>>> ee0d2bbc36226470fcd97e010703d73075febf2c
 	int bytes;
 	bytes = write(sockfd, toSend, strlen(toSend));
 	return bytes;
