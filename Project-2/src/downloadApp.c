@@ -18,7 +18,7 @@ void parseFile(char* path, char* file);
 int readCmdReply(int sockfd); 
 int sendMsg(int sockfd, char* toSend);
 int login(int sockfd, char* user, char* pass);
-int download(int controlSockfd, int downloadSockfd, char * filename); 
+int download(int controlSockfd, int downloadSockfd, char * path, char * filename); 
 
 int socketRead(int sockfd, char * reply);
  
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
   }
  
   //fazer download (todo nao tao facil)
-  download(sockfd, sockfd_download, file);
+  download(sockfd, sockfd_download, path, file);
  
   //fechar portas (ez)
   close(sockfd_download);
@@ -274,12 +274,12 @@ int login(int sockfd, char* user, char* pass) {
   return 0;
 }
 
-int download(int controlSockfd, int downloadSockfd, char * filename) {
+int download(int controlSockfd, int downloadSockfd, char * path, char * filename) {
 	FILE * file;
 	int bytes;
   char retrCmd[MAX_STRING_LENGTH];
  
-  sprintf(retrCmd, "RETR %s\n", filename); 
+  sprintf(retrCmd, "RETR %s\n", path); 
   sendMsg(controlSockfd, retrCmd);
   int retrReply = socketRead(controlSockfd, NULL);
   if (retrReply >= 4) {
