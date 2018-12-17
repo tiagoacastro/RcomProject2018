@@ -91,7 +91,6 @@ int main(int argc, char** argv) {
 	sendMsg(sockfd, "PASV\n");
 
 	//ler a porta enviada pelo servidor (todo)
-	//...
 	int serverPort;
 	char downloadPort[MAX_STRING_LENGTH];
 	readReply(sockfd, downloadPort);
@@ -102,6 +101,8 @@ int main(int argc, char** argv) {
 			printf("Error entering passive mode\n");
 			exit(1);
 	} 
+
+	//sscanf(pasv, "227 Entering Passive Mode (%d,%d,%d,%d,%d,%d)",)
 
 	//abrir porta (copy pasta)
 	/*server address handling*/
@@ -209,10 +210,10 @@ void parseFile(char* path, char* file) {
 	}
 }
 
-<<<<<<< HEAD
-int readCmdReply(int socketfd) {
-
+<<<<<<< Updated upstream
 =======
+
+>>>>>>> Stashed changes
 int readCmdReply(int sockfd) {
 >>>>>>> ee0d2bbc36226470fcd97e010703d73075febf2c
 	char reply[MAX_STRING_LENGTH]; 
@@ -244,14 +245,15 @@ int readReply(int socketfd, char * returnMsg) {
 int sendMsg(int socketfd, char* toSend) {
 =======
 int sendMsg(int sockfd, char* toSend) {
->>>>>>> ee0d2bbc36226470fcd97e010703d73075febf2c
 	int bytes;
 	bytes = write(sockfd, toSend, strlen(toSend));
+=======
+	int bytes = write(sockfd, toSend, strlen(toSend));
+>>>>>>> Stashed changes
 	return bytes;
 }
 
 int login(int sockfd, char* user, char* pass) {
-	
 	char userCmd[MAX_STRING_LENGTH];
 	char passCmd[MAX_STRING_LENGTH];
 
