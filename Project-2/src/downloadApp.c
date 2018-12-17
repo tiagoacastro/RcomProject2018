@@ -20,6 +20,10 @@ int sendMsg(int socketfd, char* toSend);
 int login(int socketfd, char* user, char* pass);
 
 int main(int argc, char** argv) {
+
+	if(argc != 2)
+		exit(1);
+
 	int	sockfd;
 	struct	sockaddr_in server_addr;
 	struct hostent * h;
