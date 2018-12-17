@@ -15,9 +15,9 @@
 
 void parseInfo(char* info, char* user, char* password, char* host, char* path);
 void parseFile(char* path, char* file);
-int readCmdReply(int socketfd); 
-int sendMsg(int socketfd, char* toSend);
-int login(int socketfd, char* user, char* pass);
+int readCmdReply(int sockfd); 
+int sendMsg(int sockfd, char* toSend);
+int login(int sockfd, char* user, char* pass);
 
 int main(int argc, char** argv) {
 	int	sockfd, sockfd_download;
@@ -200,12 +200,12 @@ void parseFile(char* path, char* file) {
 	}
 }
 
-int readCmdReply(int socketfd) {
+int readCmdReply(int sockfd) {
 	char reply[MAX_STRING_LENGTH]; 
   	memset(reply, 0, MAX_STRING_LENGTH); 
 	
 	while(!(reply[0] >= '1' && reply[0] <= '5') || reply[3] != ' ') {
-		read(socketfd, reply, MAX_STRING_LENGTH);
+		read(sockfd, reply, MAX_STRING_LENGTH);
 	}	
 
 	int returnValue;
@@ -214,28 +214,28 @@ int readCmdReply(int socketfd) {
 	return returnValue;
 }
 
-int sendMsg(int socketfd, char* toSend) {
+int sendMsg(int sockfd, char* toSend) {
 	int bytes;
-	bytes = write(socketfd, toSend, strlen(toSend));
+	bytes = write(sockfd, toSend, strlen(toSend));
 	return bytes;
 }
 
-int login(int socketfd, char* user, char* pass) {
+int login(int sockfd, char* user, char* pass) {
 	
 	char userCmd[MAX_STRING_LENGTH];
 	char passCmd[MAX_STRING_LENGTH];
 
 	sprintf(userCmd, "USER %s\n", user); // \r ???
-	sendMsg(socketfd, userCmd);
-	int userReply = readCmdReply(socketfd);
+	sendMsg(sockfd, userCmd);
+	int userReply = readCmdReply(sockfd);
 	if (userReply >= 4) {
 		printf("Error sending username\n");
 		return 1;
 	}
 
 	spritnf(passCmd, "PASS %s\n", pass); //same thing ??? 
-	sendMsg(socketfd, passCmd);
-	int passReply = readCmdReply(socketfd);
+	sendMsg(sockfd, passCmd);
+	int passReply = readCmdReply(sockfd);
 	if(passReply >= 4) {
 		printf("Error sending password\n");
 		return 1;
