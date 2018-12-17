@@ -91,17 +91,26 @@ int main(int argc, char** argv) {
   sendMsg(sockfd, "PASV\n");
  
   //ler a porta enviada pelo servidor (todo)
-  //...
   int serverPort;
-  char downloadPort[MAX_STRING_LENGTH];
-  readReply(sockfd, downloadPort);
+  char passive[MAX_STRING_LENGTH];
+  readReply(sockfd, passive);
+
   //227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
   int ip1, ip2, ip3, ip4, port1, port2;
-  if ((sscanf(downloadPort, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", 
-    &ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0) {
+  if ((sscanf(passive, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0){
       printf("Error entering passive mode\n");
       exit(1);
-  } 
+  }
+
+  if ((sprintf(passive, "%d.%d.%d.%d", ip1, ip2, ip3, ip4))< 0) {
+		printf("Error creating ip address.\n");
+		return 1;
+	}
+
+  serverPort = port1 * 256 + port2;
+
+  printf("Passive IP: %s\n", passive);
+  printf("Passive PORT: %d\n", serverPort);
  
   //abrir porta (copy pasta)
   /*server address handling*/
@@ -117,9 +126,7 @@ int main(int argc, char** argv) {
   }
  
   /*connect to the server*/
-  if(connect(sockfd_download, 
-            (struct sockaddr *)&server_addr_download, 
-             sizeof(server_addr_download)) < 0){
+  if(connect(sockfd_download, (struct sockaddr *)&server_addr_download, sizeof(server_addr_download)) < 0){
     perror("connect()");
     exit(0);
   }
