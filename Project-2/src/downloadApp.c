@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
     exit(1);
   }
  
+  //parse argument
   parseInfo(argv[1], user, password, host, path);
  
   printf(">Username: %s\n", user);
@@ -44,33 +45,34 @@ int main(int argc, char** argv) {
   printf(">Host: %s\n", host);
   printf(">Path: %s\n", path);
 
- char file[MAX_STRING_LENGTH];
+  char file[MAX_STRING_LENGTH];
  
   parseFile(path, file);
  
   printf(">Filename: %s\n", file);
  
+  //get host info
   if ((h=gethostbyname(host)) == NULL) {  
     herror("gethostbyname");
     exit(1);
     }
  
   printf(">Host name  : %s\n", h->h_name);
-    printf(">IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
+  printf(">IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
  
-  /*server address handling*/
+  //server address handling
   bzero((char*)&server_addr,sizeof(server_addr));
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));  /*32 bit Internet address network byte ordered*/
   server_addr.sin_port = htons(SERVER_PORT);    /*server TCP port must be network byte ordered */
     
-  /*open an TCP socket*/
+  //open an TCP socket
   if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
     perror("socket()");
     exit(0); 
   }
  
-  /*connect to the server*/
+  //connect to the server
   if(connect(sockfd, 
             (struct sockaddr *)&server_addr, 
              sizeof(server_addr)) < 0){
@@ -78,26 +80,23 @@ int main(int argc, char** argv) {
     exit(0);
   }
   
-  //ver se a ligacao foi estabelecida com sucesso (done)
+  //check connection
   if (socketRead(sockfd, NULL) != 2) {
     printf("Error establishing connection\n");
     exit(1);
   }
 
-  //login (done)
+  //login
   if (login(sockfd, user, password)) {
     printf("Error login\n");
     exit(1);
   }
  
-
-  //por em modo pasv (todo facil)
+  //passive mode
   sendMsg(sockfd, "PASV\n");
-  //ler a porta enviada pelo servidor (todo)
   int serverPort;
   char passive[MAX_STRING_LENGTH];
   socketRead(sockfd, passive);
-
 
   //227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
   int ip1, ip2, ip3, ip4, port1, port2;
@@ -116,7 +115,7 @@ int main(int argc, char** argv) {
   printf("Passive IP: %s\n", passive);
   printf("Passive PORT: %d\n", serverPort);
  
-  //abrir porta (copy pasta)
+  //open port
   bzero((char*)&server_addr_download,sizeof(server_addr_download));
   server_addr_download.sin_family = AF_INET;
   server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));  
@@ -132,16 +131,15 @@ int main(int argc, char** argv) {
     exit(0);
   }
  
-  //fazer download (todo nao tao facil)
+  //download file
   download(sockfd, sockfd_download, path, file);
  
-  //fechar portas (ez)
+  //close sockets
   close(sockfd_download);
   close(sockfd);
  
   return 0;
 }
- 
  
 void parseInfo(char* info, char* user, char* password, char* host, char* path) {
   unsigned int i = 6;
@@ -160,8 +158,17 @@ void parseInfo(char* info, char* user, char* password, char* host, char* path) {
           state++;
           j = 0;
         }else{
-          *(user + j) = buf;
-          j++;
+          if(buf == '/'){
+            *(user + j) = 0; //end char
+            j=0;
+            memcpy(host, user, MAX_STRING_LENGTH);
+            strcpy(user, "anonymous");
+            strcpy(password, "ds");
+            state = 3;
+          }else{
+            *(user + j) = buf;
+            j++;
+          }
         }
         break;
       case 1:
@@ -217,7 +224,6 @@ void parseFile(char* path, char* file) {
   }
 }	
 
-
 int socketRead(int sockfd, char* reply){
   FILE* fp = fdopen(sockfd, "r");
   int allocated = 0;
@@ -230,7 +236,6 @@ int socketRead(int sockfd, char* reply){
   do {
     memset(reply, 0, MAX_STRING_LENGTH);
     reply = fgets(reply, MAX_STRING_LENGTH, fp);
-    printf(">%s", reply);
   } while (!('1' <= reply[0] && reply[0] <= '5') || reply[3] != ' ');
 
   int returnValue;
