@@ -89,15 +89,15 @@ int main(int argc, char** argv) {
     exit(1);
   }
  
-/*
+
   //por em modo pasv (todo facil)
   sendMsg(sockfd, "PASV\n");
- 
   //ler a porta enviada pelo servidor (todo)
   int serverPort;
   char passive[MAX_STRING_LENGTH];
-  readReply(sockfd, passive);
+  socketRead(sockfd, passive);
 
+/* 
   //227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
   int ip1, ip2, ip3, ip4, port1, port2;
   if ((sscanf(passive, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0){
