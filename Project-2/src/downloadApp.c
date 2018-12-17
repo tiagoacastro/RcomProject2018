@@ -76,7 +76,7 @@ int main(int argc, char** argv) {
 	}
 	
 	//ver se a ligacao foi estabelecida com sucesso (done)
-	if (readCmdReply() != 2) {
+	if (readCmdReply(sockfd) != 2) {
 		printf("Error establishing connection\n");
 		exit(1);
 	}
@@ -93,10 +93,19 @@ int main(int argc, char** argv) {
 	//ler a porta enviada pelo servidor (todo)
 	//...
 	int serverPort;
+	char downloadPort[MAX_STRING_LENGTH];
+	readReply(sockfd, downloadPort);
+	//227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
+	int ip1, ip2, ip3, ip4, port1, port2;
+	if ((sscanf(downloadPort, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", 
+		&ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0) {
+			printf("Error entering passive mode\n");
+			exit(1);
+	} 
 
 	//abrir porta (copy pasta)
 	/*server address handling*/
-	bzero((char*)&server_addr_download,sizeof(server_addr_dowload));
+	bzero((char*)&server_addr_download,sizeof(server_addr_download));
 	server_addr_download.sin_family = AF_INET;
 	server_addr_download.sin_addr.s_addr = inet_addr(inet_ntoa(*((struct in_addr *)h->h_addr)));	/*32 bit Internet address network byte ordered*/
 	server_addr_download.sin_port = htons(serverPort);		/*server TCP port must be network byte ordered */
@@ -201,6 +210,7 @@ void parseFile(char* path, char* file) {
 }
 
 int readCmdReply(int socketfd) {
+
 	char reply[MAX_STRING_LENGTH]; 
   	memset(reply, 0, MAX_STRING_LENGTH); 
 	
@@ -210,6 +220,18 @@ int readCmdReply(int socketfd) {
 
 	int returnValue;
 	char code[2] = {reply[0], '\0'};
+	sscanf(code, "%d", &returnValue);
+	return returnValue;
+}
+
+int readReply(int socketfd, char * returnMsg) {
+
+	while(!(returnMsg[0] >= '1' && returnMsg[0] <= '5') || returnMsg[3] != ' ') {
+		read(socketfd, returnMsg, MAX_STRING_LENGTH);
+	}	
+
+	int returnValue;
+	char code[2] = {returnMsg[0], '\0'};
 	sscanf(code, "%d", &returnValue);
 	return returnValue;
 }
