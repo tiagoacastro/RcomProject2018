@@ -9,8 +9,8 @@
 #include <netdb.h>
 #include <strings.h>
  
-#define SERVER_PORT       21
-#define SERVER_ADDR       "192.168.28.96"
+#define SERVER_PORT          21
+#define SERVER_ADDR          "192.168.28.96"
 #define MAX_STRING_LENGTH    64
  
 void parseInfo(char* info, char* user, char* password, char* host, char* path);
@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
   char passive[MAX_STRING_LENGTH];
   socketRead(sockfd, passive);
 
-  //227 Entering Passive Mode (h1, h2, h3, h4, p1, p2)
+  //227 Entering Passive Mode (ip1, ip2, ip3, ip4, p1, p2)
   int ip1, ip2, ip3, ip4, port1, port2;
   if ((sscanf(passive, "227 Entering Passive Mode (%d, %d, %d, %d, %d, %d)", &ip1, &ip2, &ip3, &ip4, &port1, &port2)) < 0){
       printf("Error entering passive mode\n");
